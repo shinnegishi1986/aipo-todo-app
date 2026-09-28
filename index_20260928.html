@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="ja" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ToDo管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans JP', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            soft: '0 8px 24px rgba(15,23,42,.08)',
+          },
+        },
+      },
+    };
+  </script>
+  <script>
+    const THEME_KEY = 'todo-app:theme';
+    try {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if ((savedTheme || (prefersDark ? 'dark' : 'light')) === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    } catch (_) {}
+  </script>
+  <style>
+    .flash-enter { animation: flashIn .2s ease-out; }
+    .modal-enter { animation: modalFade .18s ease-out; }
+    .modal-panel-enter { animation: modalPanel .2s ease-out; }
+    @keyframes flashIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes modalFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes modalPanel {
+      from { opacity: 0; transform: translateY(8px) scale(.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .flatpickr-calendar {
+      border-radius: 12px !important;
+      border-color: rgb(231 229 228) !important;
+      box-shadow: 0 12px 30px rgba(15,23,42,.12) !important;
+    }
+    .dark .flatpickr-calendar {
+      background: rgb(28 25 23) !important;
+      border-color: rgb(68 64 60) !important;
+      box-shadow: 0 12px 30px rgba(0,0,0,.35) !important;
+    }
+    .dark .flatpickr-months,
+    .dark .flatpickr-weekdays,
+    .dark span.flatpickr-weekday,
+    .dark .flatpickr-current-month input.cur-year,
+    .dark .flatpickr-current-month .flatpickr-monthDropdown-months,
+    .dark .flatpickr-day,
+    .dark .numInputWrapper span.arrowUp:after,
+    .dark .numInputWrapper span.arrowDown:after {
+      color: rgb(245 245 244) !important;
+    }
+    .dark .flatpickr-day.selected,
+    .dark .flatpickr-day.startRange,
+    .dark .flatpickr-day.endRange {
+      background: rgb(20 184 166) !important;
+      border-color: rgb(20 184 166) !important;
+    }
+  </style>
+</head>
+<body class="h-full bg-stone-50 font-sans text-stone-800 dark:bg-stone-950 dark:text-stone-100">
+  <div class="min-h-full">
+    <header class="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur dark:border-stone-800 dark:bg-stone-900/95">
+      <div class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3">
+        <div class="flex items-center gap-3">
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300">
+            <i class="ri-task-line text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-semibold">ToDo</h1>
+            <p class="text-xs text-stone-500 dark:text-stone-400">業務向け ToDo 管理</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="themeToggle" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-600 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800" aria-label="テーマ切替">
+            <i class="ri-contrast-2-line text-lg"></i>
+          </button>
+          <div class="flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1.5 dark:border-stone-700 dark:bg-stone-900">
+            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-200">
+              <i class="ri-user-line"></i>
+            </div>
+            <span class="text-sm">テスト301</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div id="flashContainer" class="pointer-events-none fixed inset-x-0 top-16 z-50 mx-auto flex max-w-3xl flex-col gap-2 px-4"></div>
+
+    <main class="mx-auto max-w-[1600px] px-4 py-4">
+      <div class="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside class="rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-stone-800 dark:bg-stone-900">
+          <div class="border-b border-stone-200 px-4 py-4 dark:border-stone-800">
+            <button id="openCreateBtn" type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <i class="ri-add-line"></i>
+              ToDoを追加する
+            </button>
+          </div>
+          <div class="px-4 py-4">
+            <p class="mb-3 text-sm font-medium">すべてのカテゴリ</p>
+            <div id="categoryList" class="space-y-1"></div>
+          </div>
+        </aside>
+
+        <section class="space-y-4">
+          <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
+            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <label for="filterCategory" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">カテゴリ</label>
+                  <select id="filterCategory" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
+                    <option value="">すべて</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="filterAssignee" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">担当者</label>
+                  <input id="filterAssignee" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="担当者で検索">
+                </div>
+                <div>
+                  <label for="filterKeyword" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">キーワード</label>
+                  <input id="filterKeyword" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="タイトルで検索">
+                </div>
+                <div>
+                  <label for="filterProgress" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">進捗</label>
+                  <select id="filterProgress" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
+                    <option value="">すべて</option>
+                    <option value="0">未着手</option>
+                    <option value="20">20%</option>
+                    <option value="40">40%</option>
+                    <option value="60">60%</option>
+                    <option value="80">80%</option>
+                    <option value="100">完了</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <button id="searchBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+                  <i class="ri-search-line"></i>
+                  検索
+                </button>
+                <button id="completeSelectedBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+                  完了にする
+                </button>
+                <button id="deleteSelectedBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+                  削除する
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-4">
+            <article class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
+              <p class="text-xs text-stone-500 dark:text-stone-400">全件数</p>
+              <p id="kpiAll" class="mt-2 text-2xl font-semibold tabular-nums">0</p>
+            </article>
+            <article class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
+              <p class="text-xs text-stone-500 dark:text-stone-400">進行中</p>
+              <p id="kpiProgress" class="mt-2 text-2xl font-semibold tabular-nums">0</p>
+            </article>
+            <article class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
+              <p class="text-xs text-stone-500 dark:text-stone-400">完了</p>
+              <p id="kpiDone" class="mt-2 text-2xl font-semibold tabular-nums">0</p>
+            </article>
+            <article class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
+              <p class="text-xs text-stone-500 dark:text-stone-400">期限超過</p>
+              <p id="kpiLate" class="mt-2 text-2xl font-semibold tabular-nums">0</p>
+            </article>
+          </div>
+
+          <div class="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-stone-800 dark:bg-stone-900">
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <thead class="bg-stone-100 text-stone-700 dark:bg-stone-800/80 dark:text-stone-200">
+                  <tr>
+                    <th class="w-10 px-3 py-3 text-left">
+                      <input id="checkAll" type="checkbox" class="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900">
+                    </th>
+                    <th class="px-3 py-3 text-left">優先度</th>
+                    <th class="px-3 py-3 text-left">タイトル</th>
+                    <th class="px-3 py-3 text-left">担当者</th>
+                    <th class="px-3 py-3 text-left">カテゴリ</th>
+                    <th class="px-3 py-3 text-left">締切日</th>
+                    <th class="px-3 py-3 text-left">進捗</th>
+                  </tr>
+                </thead>
+                <tbody id="todoTableBody"></tbody>
+              </table>
+            </div>
+            <div class="flex items-center justify-end border-t border-stone-200 px-4 py-3 text-sm text-stone-500 dark:border-stone-800 dark:text-stone-400">
+              <span id="tableCount">0 - 0 / 0</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalRoot" class="fixed inset-0 z-[60] hidden"></div>
+
+  <template id="todoFormTemplate">
+    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+      <div class="modal-panel-enter w-full max-w-3xl rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
+        <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
+          <h2 id="todoFormTitle" class="text-lg font-semibold">ToDo追加</h2>
+          <button type="button" data-close-modal class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800" aria-label="閉じる">
+            <i class="ri-close-line text-lg"></i>
+          </button>
+        </div>
+        <form id="todoForm" class="space-y-4 px-5 py-5">
+          <input type="hidden" id="todoId">
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
+            <label for="category" class="text-sm font-medium">カテゴリ <span class="text-rose-500">必須</span></label>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <select id="category" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30"></select>
+              <button type="button" id="openCategoryCreateBtn" class="inline-flex items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:hover:bg-stone-700">新しく入力する</button>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
+            <label class="text-sm font-medium">担当者 <span class="text-rose-500">必須</span></label>
+            <div class="grid gap-2 md:grid-cols-2">
+              <select id="assigneeGroup" class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30"></select>
+              <input id="assigneeName" type="text" class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="担当者名">
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
+            <label for="title" class="text-sm font-medium">タイトル <span class="text-rose-500">必須</span></label>
+            <input id="title" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="タイトルを入力">
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+            <label class="pt-2 text-sm font-medium">開始日</label>
+            <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+              <div class="relative">
+                <i class="ri-calendar-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"></i>
+                <input id="startDate" type="text" class="w-full rounded-lg border border-stone-300 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
+              </div>
+              <label class="inline-flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
+                <input id="startDateNone" type="checkbox" class="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900">
+                指定しない
+              </label>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+            <label class="pt-2 text-sm font-medium">締切日</label>
+            <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+              <div class="relative">
+                <i class="ri-calendar-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"></i>
+                <input id="dueDate" type="text" class="w-full rounded-lg border border-stone-300 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
+              </div>
+              <label class="inline-flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
+                <input id="dueDateNone" type="checkbox" class="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900">
+                指定しない
+              </label>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+            <span class="pt-2 text-sm font-medium">優先度</span>
+            <div id="priorityGroup" class="flex flex-wrap gap-4 text-sm">
+              <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="高い" class="text-teal-700 focus:ring-teal-600">高い</label>
+              <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="やや高い" class="text-teal-700 focus:ring-teal-600" checked>やや高い</label>
+              <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="普通" class="text-teal-700 focus:ring-teal-600">普通</label>
+              <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="やや低い" class="text-teal-700 focus:ring-teal-600">やや低い</label>
+              <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="低い" class="text-teal-700 focus:ring-teal-600">低い</label>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
+            <label for="progress" class="text-sm font-medium">進捗</label>
+            <select id="progress" class="w-full max-w-xs rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
+              <option value="0">未着手</option>
+              <option value="20">20%</option>
+              <option value="40">40%</option>
+              <option value="60">60%</option>
+              <option value="80">80%</option>
+              <option value="100">100%</option>
+            </select>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+            <label for="memo" class="pt-2 text-sm font-medium">メモ</label>
+            <textarea id="memo" rows="6" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30"></textarea>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+            <span class="pt-2 text-sm font-medium">公開区分</span>
+            <div class="flex flex-wrap gap-4 text-sm">
+              <label class="inline-flex items-center gap-2"><input type="radio" name="visibility" value="公開" class="text-teal-700 focus:ring-teal-600">公開</label>
+              <label class="inline-flex items-center gap-2"><input type="radio" name="visibility" value="非公開" class="text-teal-700 focus:ring-teal-600" checked>非公開</label>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+            <span class="pt-2 text-sm font-medium">スケジュールへの表示</span>
+            <div class="flex flex-wrap gap-4 text-sm">
+              <label class="inline-flex items-center gap-2"><input type="radio" name="scheduleDisplay" value="表示" class="text-teal-700 focus:ring-teal-600" checked>表示</label>
+              <label class="inline-flex items-center gap-2"><input type="radio" name="scheduleDisplay" value="非表示" class="text-teal-700 focus:ring-teal-600">非表示</label>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+            <button id="submitTodoBtn" type="submit" class="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <i class="ri-save-line"></i>
+              <span>追加する</span>
+            </button>
+            <button type="button" data-close-modal class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+              閉じる
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </template>
+
+  <template id="todoDetailTemplate">
+    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+      <div class="modal-panel-enter w-full max-w-3xl rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
+        <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
+          <h2 class="text-lg font-semibold">ToDo詳細</h2>
+          <button type="button" data-close-modal class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800" aria-label="閉じる">
+            <i class="ri-close-line text-lg"></i>
+          </button>
+        </div>
+        <div class="px-5 py-4">
+          <div id="todoDetailBody" class="divide-y divide-stone-200 text-sm dark:divide-stone-800"></div>
+          <div class="mt-4 flex items-center justify-center gap-2">
+            <button id="detailEditBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+              編集する
+            </button>
+            <button id="detailDeleteBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+              削除する
+            </button>
+            <button type="button" data-close-modal class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
+              閉じる
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="confirmTemplate">
+    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+      <div class="modal-panel-enter w-full max-w-md rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
+        <div class="border-b border-stone-200 px-5 py-4 dark:border-stone-800">
+          <h2 id="confirmTitle" class="text-lg font-semibold">確認</h2>
+        </div>
+        <div class="px-5 py-5">
+          <p id="confirmMessage" class="text-sm leading-6 text-stone-700 dark:text-stone-200"></p>
+          <div class="mt-5 flex items-center justify-end gap-2">
+            <button type="button" data-close-modal class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">キャンセル</button>
+            <button id="confirmOkBtn" type="button" class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500">実行する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="categoryTemplate">
+    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+      <div class="modal-panel-enter w-full max-w-md rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
+        <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
+          <h2 class="text-lg font-semibold">カテゴリ追加</h2>
+          <button type="button" data-close-modal class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800" aria-label="閉じる">
+            <i class="ri-close-line text-lg"></i>
+          </button>
+        </div>
+        <form id="categoryForm" class="space-y-4 px-5 py-5">
+          <div>
+            <label for="newCategoryName" class="mb-1.5 block text-sm font-medium">カテゴリ名 <span class="text-rose-500">必須</span></label>
+            <input id="newCategoryName" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="新しいカテゴリ名を入力">
+          </div>
+          <div class="flex items-center justify-end gap-2">
+            <button type="button" data-close-modal class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">閉じる</button>
+            <button type="submit" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500">追加する</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
+  <script>
+    (() => {
+      const STORAGE_KEYS = {
+        todos: 'todo-app:todos',
+        categories: 'todo-app:categories',
+        filters: 'todo-app:filters',
+        theme: 'todo-app:theme',
+      };
+
+      const state = {
+        categories: loadJSON(STORAGE_KEYS.categories, ['未分類', '312', '393939', '6/1追加', 'a', 'a393939', 'aaa', 'eteam', 'green', 'tesuto346', 'あ', 'あいうえお']),
+        groups: ['すべてのグループ', '営業部', '開発部', '管理部'],
+        todos: loadJSON(STORAGE_KEYS.todos, getDefaultTodos()),
+        filters: normalizeFilters(loadJSON(STORAGE_KEYS.filters, {
+          category: '',
+          assignee: '',
+          keyword: '',
+          progress: '',
+          selectedCategorySide: '',
+        })),
+        selectedIds: new Set(),
+        flatpickrInstances: [],
+      };
+
+      const els = {
+        categoryList: document.getElementById('categoryList'),
+        filterCategory: document.getElementById('filterCategory'),
+        filterAssignee: document.getElementById('filterAssignee'),
+        filterKeyword: document.getElementById('filterKeyword'),
+        filterProgress: document.getElementById('filterProgress'),
+        searchBtn: document.getElementById('searchBtn'),
+        tableBody: document.getElementById('todoTableBody'),
+        checkAll: document.getElementById('checkAll'),
+        tableCount: document.getElementById('tableCount'),
+        openCreateBtn: document.getElementById('openCreateBtn'),
+        completeSelectedBtn: document.getElementById('completeSelectedBtn'),
+        deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
+        flashContainer: document.getElementById('flashContainer'),
+        modalRoot: document.getElementById('modalRoot'),
+        themeToggle: document.getElementById('themeToggle'),
+        kpiAll: document.getElementById('kpiAll'),
+        kpiProgress: document.getElementById('kpiProgress'),
+        kpiDone: document.getElementById('kpiDone'),
+        kpiLate: document.getElementById('kpiLate'),
+      };
+
+      function getDefaultTodos() {
+        return [
+          {
+            id: cryptoId(),
+            category: '未分類',
+            assigneeGroup: 'すべてのグループ',
+            assigneeName: 'テスト301',
+            title: '新卒採用計画',
+            startDate: '2025-11-25',
+            dueDate: '2025-11-26',
+            priority: 'やや高い',
+            progress: 40,
+            memo: '',
+            visibility: '非公開',
+            scheduleDisplay: '表示',
+            createdAt: '2025-11-26',
+            updatedAt: '2025-11-26',
+            updatedBy: 'テスト301',
+          },
+        ];
+      }
+
+      function cryptoId() {
+        return 'id-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      }
+
+      function loadJSON(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function saveJSON(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (_) {}
+      }
+
+      function todayStr() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      function normalizeFilterValue(value) {
+        return value === 'all' ? '' : (value ?? '');
+      }
+
+      function normalizeFilters(filters) {
+        return {
+          category: normalizeFilterValue(filters?.category),
+          assignee: filters?.assignee ?? '',
+          keyword: filters?.keyword ?? '',
+          progress: normalizeFilterValue(filters?.progress),
+          selectedCategorySide: normalizeFilterValue(filters?.selectedCategorySide),
+        };
+      }
+
+      function formatDateJP(dateStr) {
+        if (!dateStr) return '指定なし';
+        const d = new Date(dateStr + 'T00:00:00');
+        if (Number.isNaN(d.getTime())) return dateStr;
+        const week = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+        return `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日(${week})`;
+      }
+
+      function formatDateShort(dateStr) {
+        if (!dateStr) return '指定なし';
+        const d = new Date(dateStr + 'T00:00:00');
+        if (Number.isNaN(d.getTime())) return dateStr;
+        const week = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+        return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}(${week})`;
+      }
+
+      function escapeHtml(str) {
+        return String(str ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function priorityBars(priority) {
+        const countMap = { '高い': 4, 'やや高い': 4, '普通': 3, 'やや低い': 2, '低い': 1 };
+        const active = countMap[priority] || 1;
+        let html = '<div class="flex items-center gap-0.5">';
+        for (let i = 0; i < 4; i++) {
+          html += `<span class="inline-block h-3 w-1 rounded-sm ${i < active ? 'bg-amber-500' : 'bg-stone-200 dark:bg-stone-700'}"></span>`;
+        }
+        html += '</div>';
+        return html;
+      }
+
+      function progressLabel(progress) {
+        return Number(progress) === 0 ? '未着手' : `${progress}%`;
+      }
+
+      function isLate(todo) {
+        if (!todo.dueDate || Number(todo.progress) >= 100) return false;
+        const today = new Date();
+        const due = new Date(todo.dueDate + 'T23:59:59');
+        return due < today;
+      }
+
+      function showFlash(type, message) {
+        const colorMap = {
+          success: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/30 dark:text-emerald-200',
+          error: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/30 dark:text-rose-200',
+          info: 'border-stone-200 bg-white text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100',
+        };
+        const iconMap = {
+          success: 'ri-checkbox-circle-line',
+          error: 'ri-error-warning-line',
+          info: 'ri-information-line',
+        };
+        const el = document.createElement('div');
+        el.className = `pointer-events-auto flash-enter flex items-start gap-3 rounded-xl border px-4 py-3 shadow-soft ${colorMap[type] || colorMap.info}`;
+        el.innerHTML = `
+          <i class="${iconMap[type] || iconMap.info} mt-0.5 text-lg"></i>
+          <div class="min-w-0 flex-1 text-sm leading-6">${escapeHtml(message)}</div>
+          <button type="button" class="text-lg opacity-70 transition hover:opacity-100" aria-label="閉じる"><i class="ri-close-line"></i></button>
+        `;
+        els.flashContainer.appendChild(el);
+        const remove = () => el.remove();
+        el.querySelector('button').addEventListener('click', remove);
+        setTimeout(remove, 3200);
+      }
+
+      function saveState() {
+        saveJSON(STORAGE_KEYS.todos, state.todos);
+        saveJSON(STORAGE_KEYS.categories, state.categories);
+        saveJSON(STORAGE_KEYS.filters, normalizeFilters(state.filters));
+      }
+
+      function syncFilterInputs() {
+        els.filterCategory.value = normalizeFilterValue(state.filters.category);
+        els.filterAssignee.value = state.filters.assignee;
+        els.filterKeyword.value = state.filters.keyword;
+        els.filterProgress.value = normalizeFilterValue(state.filters.progress);
+      }
+
+      function getFilteredTodos() {
+        return state.todos.filter((todo) => {
+          const categoryFilter = normalizeFilterValue(state.filters.category);
+          const progressFilter = normalizeFilterValue(state.filters.progress);
+          const sideCategoryFilter = normalizeFilterValue(state.filters.selectedCategorySide);
+
+          const categoryOk = !categoryFilter || todo.category === categoryFilter;
+          const assigneeOk = !state.filters.assignee || todo.assigneeName.includes(state.filters.assignee);
+          const keywordOk = !state.filters.keyword || todo.title.includes(state.filters.keyword);
+          const progressOk = progressFilter === '' || String(todo.progress) === progressFilter;
+          const sideCategoryOk = !sideCategoryFilter || todo.category === sideCategoryFilter;
+
+          return categoryOk && assigneeOk && keywordOk && progressOk && sideCategoryOk;
+        });
+      }
+
+      function clearSelection() {
+        state.selectedIds.clear();
+        els.checkAll.checked = false;
+      }
+
+      function clearAllFiltersForNewTask() {
+        state.filters = {
+          category: '',
+          assignee: '',
+          keyword: '',
+          progress: '',
+          selectedCategorySide: '',
+        };
+        clearSelection();
+        saveState();
+        syncFilterInputs();
+      }
+
+      function renderCategorySidebar() {
+        const selectedSide = normalizeFilterValue(state.filters.selectedCategorySide);
+        const allActive = !selectedSide;
+
+        const list = [
+          {
+            label: 'すべてのカテゴリ',
+            active: allActive,
+            count: state.todos.length,
+            value: '',
+          },
+          ...state.categories.map((name) => ({
+            label: name,
+            active: selectedSide === name,
+            count: state.todos.filter((t) => t.category === name).length,
+            value: name,
+          })),
+        ];
+
+        els.categoryList.innerHTML = list.map((item) => `
+          <button type="button" data-side-category="${escapeHtml(item.value)}" class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${item.active ? 'bg-stone-100 text-stone-900 dark:bg-stone-800 dark:text-stone-100' : 'text-stone-700 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800/70'}">
+            <span class="truncate">${escapeHtml(item.label)}</span>
+            <span class="tabular-nums text-xs text-stone-400">${item.count}</span>
+          </button>
+        `).join('');
+      }
+
+      function renderFilterCategory() {
+        const current = normalizeFilterValue(state.filters.category);
+        els.filterCategory.innerHTML = `<option value="">すべて</option>` + state.categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+        els.filterCategory.value = current;
+      }
+
+      function renderKPIs() {
+        const all = state.todos.length;
+        const done = state.todos.filter((t) => Number(t.progress) >= 100).length;
+        const progress = state.todos.filter((t) => Number(t.progress) > 0 && Number(t.progress) < 100).length;
+        const late = state.todos.filter(isLate).length;
+        els.kpiAll.textContent = all;
+        els.kpiDone.textContent = done;
+        els.kpiProgress.textContent = progress;
+        els.kpiLate.textContent = late;
+      }
+
+      function renderTable() {
+        const todos = getFilteredTodos();
+        els.tableBody.innerHTML = '';
+
+        if (!todos.length) {
+          els.tableBody.innerHTML = `
+            <tr>
+              <td colspan="7" class="px-4 py-16 text-center">
+                <div class="mx-auto max-w-md">
+                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-stone-100 text-stone-400 dark:bg-stone-800 dark:text-stone-500">
+                    <i class="ri-inbox-line text-2xl"></i>
+                  </div>
+                  <p class="mt-4 text-sm font-medium">まだデータがありません。</p>
+                  <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">右上または左上の「ToDoを追加する」から追加できます。</p>
+                </div>
+              </td>
+            </tr>
+          `;
+          els.tableCount.textContent = '0 - 0 / 0';
+          els.checkAll.checked = false;
+          return;
+        }
+
+        const rows = todos.map((todo) => {
+          const checked = state.selectedIds.has(todo.id);
+          const rowClass = 'border-t border-stone-200 bg-rose-50/70 hover:bg-rose-50 dark:border-stone-800 dark:bg-rose-900/10 dark:hover:bg-rose-900/20';
+          return `
+            <tr class="${rowClass}">
+              <td class="px-3 py-3 align-middle">
+                <input type="checkbox" data-row-check="${todo.id}" ${checked ? 'checked' : ''} class="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900">
+              </td>
+              <td class="px-3 py-3 align-middle">${priorityBars(todo.priority)}</td>
+              <td class="px-3 py-3 align-middle">
+                <button type="button" data-open-detail="${todo.id}" class="flex items-center gap-2 text-left text-sm font-medium text-stone-800 underline-offset-2 hover:underline dark:text-stone-100">
+                  <i class="ri-lock-2-fill text-stone-400"></i>
+                  <span>${escapeHtml(todo.title)}</span>
+                </button>
+              </td>
+              <td class="px-3 py-3 align-middle">${escapeHtml(todo.assigneeName)}</td>
+              <td class="px-3 py-3 align-middle">${escapeHtml(todo.category)}</td>
+              <td class="px-3 py-3 align-middle tabular-nums">${escapeHtml(formatDateJP(todo.dueDate))}</td>
+              <td class="px-3 py-3 align-middle">
+                <select data-progress-select="${todo.id}" class="w-24 rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-900 dark:focus:ring-teal-900/30">
+                  <option value="0" ${Number(todo.progress) === 0 ? 'selected' : ''}>未着手</option>
+                  <option value="20" ${Number(todo.progress) === 20 ? 'selected' : ''}>20%</option>
+                  <option value="40" ${Number(todo.progress) === 40 ? 'selected' : ''}>40%</option>
+                  <option value="60" ${Number(todo.progress) === 60 ? 'selected' : ''}>60%</option>
+                  <option value="80" ${Number(todo.progress) === 80 ? 'selected' : ''}>80%</option>
+                  <option value="100" ${Number(todo.progress) === 100 ? 'selected' : ''}>100%</option>
+                </select>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        els.tableBody.innerHTML = rows;
+        els.tableCount.textContent = `1 - ${todos.length} / ${todos.length}`;
+        els.checkAll.checked = todos.length > 0 && todos.every((todo) => state.selectedIds.has(todo.id));
+      }
+
+      function render() {
+        state.filters = normalizeFilters(state.filters);
+        renderCategorySidebar();
+        renderFilterCategory();
+        renderKPIs();
+        renderTable();
+        syncFilterInputs();
+      }
+
+      function bindEvents() {
+        els.themeToggle.addEventListener('click', () => {
+          const isDark = document.documentElement.classList.toggle('dark');
+          try { localStorage.setItem(STORAGE_KEYS.theme, isDark ? 'dark' : 'light'); } catch (_) {}
+          showFlash('info', `テーマを${isDark ? 'ダーク' : 'ライト'}に変更しました。`);
+        });
+
+        els.openCreateBtn.addEventListener('click', () => openTodoForm());
+
+        els.searchBtn.addEventListener('click', () => {
+          state.filters.category = normalizeFilterValue(els.filterCategory.value);
+          state.filters.assignee = els.filterAssignee.value.trim();
+          state.filters.keyword = els.filterKeyword.value.trim();
+          state.filters.progress = normalizeFilterValue(els.filterProgress.value);
+          clearSelection();
+          saveState();
+          render();
+          showFlash('info', '検索条件を反映しました。');
+        });
+
+        els.completeSelectedBtn.addEventListener('click', () => {
+          const ids = [...state.selectedIds];
+          if (!ids.length) {
+            showFlash('error', '対象の ToDo を選択してください。');
+            return;
+          }
+          openConfirmModal('完了確認', `${ids.length}件の ToDo を完了にします。よろしいですか。`, () => {
+            const today = todayStr();
+            state.todos = state.todos.map((todo) => ids.includes(todo.id) ? { ...todo, progress: 100, updatedAt: today, updatedBy: 'テスト301' } : todo);
+            clearSelection();
+            saveState();
+            closeModal();
+            render();
+            showFlash('success', `${ids.length}件の ToDo を完了にしました。`);
+          });
+        });
+
+        els.deleteSelectedBtn.addEventListener('click', () => {
+          const ids = [...state.selectedIds];
+          if (!ids.length) {
+            showFlash('error', '削除する ToDo を選択してください。');
+            return;
+          }
+          openConfirmModal('削除確認', `${ids.length}件の ToDo を削除します。よろしいですか。`, () => {
+            state.todos = state.todos.filter((todo) => !ids.includes(todo.id));
+            clearSelection();
+            saveState();
+            closeModal();
+            render();
+            showFlash('success', `${ids.length}件の ToDo を削除しました。`);
+          });
+        });
+
+        els.checkAll.addEventListener('change', (e) => {
+          const todos = getFilteredTodos();
+          if (e.target.checked) {
+            todos.forEach((todo) => state.selectedIds.add(todo.id));
+          } else {
+            todos.forEach((todo) => state.selectedIds.delete(todo.id));
+          }
+          renderTable();
+        });
+
+        els.categoryList.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-side-category]');
+          if (!btn) return;
+          state.filters.selectedCategorySide = normalizeFilterValue(btn.dataset.sideCategory);
+          clearSelection();
+          saveState();
+          render();
+        });
+
+        els.tableBody.addEventListener('click', (e) => {
+          const detailBtn = e.target.closest('[data-open-detail]');
+          if (detailBtn) {
+            openDetailModal(detailBtn.dataset.openDetail);
+          }
+        });
+
+        els.tableBody.addEventListener('change', (e) => {
+          const check = e.target.closest('[data-row-check]');
+          if (check) {
+            if (check.checked) state.selectedIds.add(check.dataset.rowCheck);
+            else state.selectedIds.delete(check.dataset.rowCheck);
+            renderTable();
+            return;
+          }
+
+          const progress = e.target.closest('[data-progress-select]');
+          if (progress) {
+            const todo = state.todos.find((item) => item.id === progress.dataset.progressSelect);
+            if (!todo) return;
+            todo.progress = Number(progress.value);
+            todo.updatedAt = todayStr();
+            todo.updatedBy = 'テスト301';
+            saveState();
+            renderKPIs();
+            showFlash('success', `「${todo.title}」の進捗を更新しました。`);
+          }
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && !els.modalRoot.classList.contains('hidden')) {
+            closeModal();
+          }
+        });
+      }
+
+      function closeModal() {
+        state.flatpickrInstances.forEach((fp) => fp.destroy());
+        state.flatpickrInstances = [];
+        els.modalRoot.innerHTML = '';
+        els.modalRoot.classList.add('hidden');
+      }
+
+      function openModal(templateId, afterOpen) {
+        closeModal();
+        const tpl = document.getElementById(templateId);
+        els.modalRoot.innerHTML = tpl.innerHTML;
+        els.modalRoot.classList.remove('hidden');
+
+        els.modalRoot.querySelectorAll('[data-close-modal]').forEach((btn) => {
+          btn.addEventListener('click', closeModal);
+        });
+
+        const backdrop = els.modalRoot.querySelector('.modal-enter');
+        if (backdrop) backdrop.addEventListener('click', closeModal);
+
+        if (afterOpen) afterOpen();
+      }
+
+      function initDatePicker(input, checkbox) {
+        const savedValue = input.value;
+        const fp = flatpickr(input, {
+          locale: 'ja',
+          dateFormat: 'Y-m-d',
+          allowInput: true,
+        });
+        if (savedValue) input.value = savedValue;
+        state.flatpickrInstances.push(fp);
+
+        const toggle = () => {
+          input.disabled = checkbox.checked;
+          input.classList.toggle('bg-stone-100', checkbox.checked);
+          input.classList.toggle('dark:bg-stone-800', checkbox.checked);
+          if (checkbox.checked) input.value = '';
+        };
+        checkbox.addEventListener('change', toggle);
+        toggle();
+      }
+
+      function openCategoryModal(onCreated) {
+        openModal('categoryTemplate', () => {
+          const form = document.getElementById('categoryForm');
+          const input = document.getElementById('newCategoryName');
+          input.focus();
+
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = input.value.trim();
+            if (!name) {
+              showFlash('error', 'カテゴリ名を入力してください。');
+              return;
+            }
+            if (state.categories.includes(name)) {
+              showFlash('error', '同じカテゴリ名がすでに存在します。');
+              return;
+            }
+
+            state.categories.push(name);
+            state.categories.sort((a, b) => a.localeCompare(b, 'ja'));
+            saveState();
+            closeModal();
+
+            if (typeof onCreated === 'function') onCreated(name);
+
+            render();
+            showFlash('success', `カテゴリ「${name}」を追加しました。`);
+          });
+        });
+      }
+
+      function openTodoForm(todoId = null, snapshot = null) {
+        const editing = !!todoId || !!snapshot?.id;
+        const todo = snapshot || (
+          editing
+            ? state.todos.find((item) => item.id === todoId)
+            : {
+                id: '',
+                category: state.categories[0] || '未分類',
+                assigneeGroup: state.groups[0],
+                assigneeName: 'テスト301',
+                title: '',
+                startDate: todayStr(),
+                dueDate: todayStr(),
+                priority: '普通',
+                progress: 0,
+                memo: '',
+                visibility: '公開',
+                scheduleDisplay: '表示',
+              }
+        );
+
+        openModal('todoFormTemplate', () => {
+          document.getElementById('todoFormTitle').textContent = editing ? 'ToDo編集' : 'ToDo追加';
+          document.querySelector('#submitTodoBtn span').textContent = editing ? '更新する' : '追加する';
+
+          const category = document.getElementById('category');
+          const assigneeGroup = document.getElementById('assigneeGroup');
+          const assigneeName = document.getElementById('assigneeName');
+          const title = document.getElementById('title');
+          const startDate = document.getElementById('startDate');
+          const dueDate = document.getElementById('dueDate');
+          const startDateNone = document.getElementById('startDateNone');
+          const dueDateNone = document.getElementById('dueDateNone');
+          const progress = document.getElementById('progress');
+          const memo = document.getElementById('memo');
+          const todoIdInput = document.getElementById('todoId');
+          const form = document.getElementById('todoForm');
+          const openCategoryCreateBtn = document.getElementById('openCategoryCreateBtn');
+
+          category.innerHTML = state.categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+          assigneeGroup.innerHTML = state.groups.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+
+          todoIdInput.value = todo?.id || '';
+          category.value = todo?.category || state.categories[0] || '未分類';
+          assigneeGroup.value = todo?.assigneeGroup || state.groups[0];
+          assigneeName.value = todo?.assigneeName || 'テスト301';
+          title.value = todo?.title || '';
+          startDate.value = todo?.startDate || '';
+          dueDate.value = todo?.dueDate || '';
+          startDateNone.checked = !todo?.startDate;
+          dueDateNone.checked = !todo?.dueDate;
+          progress.value = String(todo?.progress ?? 0);
+          memo.value = todo?.memo || '';
+
+          document.querySelectorAll('input[name="priority"]').forEach((radio) => {
+            radio.checked = radio.value === (todo?.priority || '普通');
+          });
+          document.querySelectorAll('input[name="visibility"]').forEach((radio) => {
+            radio.checked = radio.value === (todo?.visibility || '非公開');
+          });
+          document.querySelectorAll('input[name="scheduleDisplay"]').forEach((radio) => {
+            radio.checked = radio.value === (todo?.scheduleDisplay || '表示');
+          });
+
+          initDatePicker(startDate, startDateNone);
+          initDatePicker(dueDate, dueDateNone);
+
+          openCategoryCreateBtn.addEventListener('click', () => {
+            const currentSnapshot = {
+              id: todoIdInput.value || '',
+              category: category.value,
+              assigneeGroup: assigneeGroup.value,
+              assigneeName: assigneeName.value,
+              title: title.value,
+              startDate: startDateNone.checked ? '' : startDate.value,
+              dueDate: dueDateNone.checked ? '' : dueDate.value,
+              priority: document.querySelector('input[name="priority"]:checked')?.value || '普通',
+              progress: Number(progress.value),
+              memo: memo.value,
+              visibility: document.querySelector('input[name="visibility"]:checked')?.value || '非公開',
+              scheduleDisplay: document.querySelector('input[name="scheduleDisplay"]:checked')?.value || '表示',
+            };
+
+            openCategoryModal((newCategory) => {
+              currentSnapshot.category = newCategory;
+              openTodoForm(currentSnapshot.id || null, currentSnapshot);
+            });
+          });
+
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const payload = {
+              id: todoIdInput.value || cryptoId(),
+              category: category.value.trim(),
+              assigneeGroup: assigneeGroup.value.trim(),
+              assigneeName: assigneeName.value.trim(),
+              title: title.value.trim(),
+              startDate: startDateNone.checked ? '' : startDate.value.trim(),
+              dueDate: dueDateNone.checked ? '' : dueDate.value.trim(),
+              priority: document.querySelector('input[name="priority"]:checked')?.value || '普通',
+              progress: Number(progress.value),
+              memo: memo.value.trim(),
+              visibility: document.querySelector('input[name="visibility"]:checked')?.value || '非公開',
+              scheduleDisplay: document.querySelector('input[name="scheduleDisplay"]:checked')?.value || '表示',
+            };
+
+            if (!payload.category) {
+              showFlash('error', 'カテゴリを選択してください。');
+              return;
+            }
+            if (!payload.assigneeName) {
+              showFlash('error', '担当者を入力してください。');
+              return;
+            }
+            if (!payload.title) {
+              showFlash('error', 'タイトルを入力してください。');
+              return;
+            }
+
+            const now = todayStr();
+
+            if (editing) {
+              const current = state.todos.find((item) => item.id === payload.id);
+              if (!current) {
+                showFlash('error', '更新対象の ToDo が見つかりません。');
+                return;
+              }
+              Object.assign(current, payload, {
+                createdAt: current.createdAt || now,
+                updatedAt: now,
+                updatedBy: 'テスト301',
+              });
+              saveState();
+              closeModal();
+              render();
+              showFlash('success', 'ToDoを更新しました。');
+              return;
+            }
+
+            const newTodo = {
+              ...payload,
+              createdAt: now,
+              updatedAt: now,
+              updatedBy: 'テスト301',
+            };
+
+            state.todos.unshift(newTodo);
+
+            clearAllFiltersForNewTask();
+
+            saveState();
+            closeModal();
+            render();
+            showFlash('success', `ToDo「${newTodo.title}」を追加しました。`);
+          });
+
+          title.focus();
+        });
+      }
+
+      function openDetailModal(todoId) {
+        const todo = state.todos.find((item) => item.id === todoId);
+        if (!todo) return;
+
+        openModal('todoDetailTemplate', () => {
+          const body = document.getElementById('todoDetailBody');
+          const rows = [
+            ['カテゴリ', todo.category],
+            ['ToDo詳細', todo.title + ' 🔒'],
+            ['担当者', todo.assigneeName],
+            ['開始日', formatDateJP(todo.startDate)],
+            ['締切日', formatDateJP(todo.dueDate)],
+            ['進捗', progressLabel(todo.progress)],
+            ['優先度', todo.priority],
+            ['作成日', formatDateShort(todo.createdAt)],
+            ['更新日', formatDateJP(todo.updatedAt)],
+            ['更新者', todo.updatedBy || 'テスト301'],
+            ['メモ', todo.memo || ''],
+            ['公開区分', todo.visibility],
+            ['スケジュールへの表示', todo.scheduleDisplay],
+          ];
+
+          body.innerHTML = rows.map(([label, value]) => `
+            <div class="grid grid-cols-[140px_minmax(0,1fr)] gap-4 py-3">
+              <div class="font-medium text-stone-700 dark:text-stone-200">${escapeHtml(label)}</div>
+              <div class="min-w-0 break-words text-stone-800 dark:text-stone-100">${escapeHtml(value)}</div>
+            </div>
+          `).join('');
+
+          document.getElementById('detailEditBtn').addEventListener('click', () => openTodoForm(todo.id));
+          document.getElementById('detailDeleteBtn').addEventListener('click', () => {
+            openConfirmModal('削除確認', `「${todo.title}」を削除します。よろしいですか。`, () => {
+              state.todos = state.todos.filter((item) => item.id !== todo.id);
+              state.selectedIds.delete(todo.id);
+              saveState();
+              closeModal();
+              render();
+              showFlash('success', 'ToDoを削除しました。');
+            });
+          });
+        });
+      }
+
+      function openConfirmModal(title, message, onConfirm) {
+        openModal('confirmTemplate', () => {
+          document.getElementById('confirmTitle').textContent = title;
+          document.getElementById('confirmMessage').textContent = message;
+          document.getElementById('confirmOkBtn').addEventListener('click', onConfirm);
+        });
+      }
+
+      render();
+      bindEvents();
+    })();
+  </script>
+</body>
+</html>
