@@ -4,13 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>研修用 ToDo 管理</title>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script>
     tailwind.config = {
@@ -26,282 +24,202 @@
         },
       },
     };
+
+    try {
+      const theme = localStorage.getItem('training-todo-app:theme');
+      document.documentElement.classList.toggle(
+        'dark',
+        (theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'
+      );
+    } catch (_) {}
   </script>
-
   <style>
-    .flash-enter { animation: flashIn .2s ease-out; }
-    .modal-enter { animation: modalFade .18s ease-out; }
-    .modal-panel-enter { animation: modalPanel .2s ease-out; }
-
-    @keyframes flashIn {
-      from { opacity: 0; transform: translateY(-8px); }
-      to { opacity: 1; transform: translateY(0); }
+    .field {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid #d6d3d1;
+      border-radius: .5rem;
+      background: white;
+      padding: .5rem .75rem;
+      font-size: .875rem;
+      outline: none;
     }
-
-    @keyframes modalFade {
-      from { opacity: 0; }
-      to { opacity: 1; }
+    .field:focus {
+      border-color: #0d9488;
+      box-shadow: 0 0 0 2px #ccfbf1;
     }
-
-    @keyframes modalPanel {
-      from { opacity: 0; transform: translateY(8px) scale(.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
+    .field:disabled { opacity: .55; }
+    .dark .field { background: #0c0a09; border-color: #44403c; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      border: 1px solid #d6d3d1;
+      border-radius: .5rem;
+      padding: .5rem 1rem;
+      font-size: .875rem;
+      font-weight: 500;
     }
-
-    .flatpickr-calendar {
-      border-radius: 12px !important;
-      border-color: rgb(231 229 228) !important;
-      box-shadow: 0 12px 30px rgba(15,23,42,.12) !important;
+    .btn:hover { background: #f5f5f4; }
+    .btn:focus-visible { outline: 2px solid #0d9488; outline-offset: 2px; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .dark .btn { border-color: #44403c; }
+    .dark .btn:hover { background: #292524; }
+    .btn-primary { background: #f59e0b; color: white; border-color: #f59e0b; }
+    .btn-primary:hover { background: #d97706; }
+    .btn-danger { background: #e11d48; color: white; border-color: #e11d48; }
+    .btn-danger:hover { background: #be123c; }
+    .panel {
+      border: 1px solid #e7e5e4;
+      border-radius: 1rem;
+      background: white;
+      box-shadow: 0 8px 24px rgba(15,23,42,.08);
     }
-
-    .dark .flatpickr-calendar {
-      background: rgb(28 25 23) !important;
-      border-color: rgb(68 64 60) !important;
-      box-shadow: 0 12px 30px rgba(0,0,0,.35) !important;
+    .dark .panel { background: #1c1917; border-color: #292524; }
+    .form-row { display: grid; gap: .75rem; }
+    @media (min-width: 768px) {
+      .form-row { grid-template-columns: 140px minmax(0,1fr); align-items: start; }
     }
-
-    .dark .flatpickr-months,
-    .dark .flatpickr-weekdays,
-    .dark span.flatpickr-weekday,
-    .dark .flatpickr-current-month input.cur-year,
-    .dark .flatpickr-current-month .flatpickr-monthDropdown-months,
+    .flatpickr-calendar { border-radius: 12px !important; }
+    .dark .flatpickr-calendar { background: #1c1917; }
     .dark .flatpickr-day,
-    .dark .numInputWrapper span.arrowUp:after,
-    .dark .numInputWrapper span.arrowDown:after {
-      color: rgb(245 245 244) !important;
-    }
-
-    .dark .flatpickr-day.selected,
-    .dark .flatpickr-day.startRange,
-    .dark .flatpickr-day.endRange {
-      background: rgb(20 184 166) !important;
-      border-color: rgb(20 184 166) !important;
-    }
+    .dark .flatpickr-month,
+    .dark .flatpickr-weekday { color: #f5f5f4; }
   </style>
 </head>
-
 <body class="h-full bg-stone-50 font-sans text-stone-800 dark:bg-stone-950 dark:text-stone-100">
-  <div id="loginScreen" class="min-h-full">
-    <main class="flex min-h-screen items-center justify-center px-4 py-8">
-      <section class="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-soft dark:border-stone-800 dark:bg-stone-900">
-        <div class="mb-6 flex items-center gap-3">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300">
-            <i class="ri-task-line text-xl"></i>
-          </div>
+  <!--
+    研修専用の簡易認証です。
+    HTML と localStorage にパスワードを平文保存します。
+    本物のパスワード・個人情報・機密情報は使用しないでください。
+    サーバー側の認証・アクセス制御ではありません。
+  -->
 
-          <div>
-            <h1 class="text-xl font-semibold">研修用 ToDo 管理</h1>
-            <p class="text-xs text-stone-500 dark:text-stone-400">ログインして演習を開始してください</p>
-          </div>
+  <div id="loginScreen" class="flex min-h-screen items-center justify-center p-4">
+    <section class="panel w-full max-w-md p-6">
+      <div class="mb-6 flex items-center gap-3">
+        <i class="ri-task-line text-3xl text-amber-500"></i>
+        <div>
+          <h1 class="text-xl font-semibold">研修用 ToDo 管理</h1>
+          <p class="text-xs text-stone-500">ログインして演習を開始してください</p>
         </div>
-
-        <form id="loginForm" class="space-y-4">
-          <div>
-            <label for="loginUsername" class="mb-1.5 block text-sm font-medium">ユーザー名</label>
-            <input id="loginUsername" type="text" autocomplete="username" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="ユーザー名を入力">
-          </div>
-
-          <div>
-            <label for="loginPassword" class="mb-1.5 block text-sm font-medium">パスワード</label>
-            <input id="loginPassword" type="password" autocomplete="current-password" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="パスワードを入力">
-          </div>
-
-          <p id="loginError" class="hidden rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-900/30 dark:text-rose-200"></p>
-
-          <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500">
-            <i class="ri-login-box-line"></i>
-            ログイン
-          </button>
-        </form>
-<!--
-        <div class="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-100">
-          <p class="font-medium">研修用ログイン情報</p>
-          <p class="mt-1">管理者: <code>admin / admin123</code></p>
-          <p>受講者: <code>test301 / test301</code></p>
+      </div>
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label for="loginUsername" class="mb-1 block text-sm">ユーザー名</label>
+          <input id="loginUsername" class="field" autocomplete="username" required>
         </div>
--->
-      </section>
-    </main>
+        <div>
+          <label for="loginPassword" class="mb-1 block text-sm">パスワード</label>
+          <input id="loginPassword" type="password" class="field" autocomplete="current-password" required>
+        </div>
+        <p id="loginError" class="hidden text-sm text-rose-600" role="alert"></p>
+        <button type="submit" class="btn btn-primary w-full">ログイン</button>
+      </form>
+      <!--
+      <div class="mt-5 rounded-lg bg-amber-50 p-3 text-xs leading-6 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+        <p>管理者: <code>admin / admin123</code></p>
+        <p>受講者: <code>test301</code> ～ <code>test399</code></p>
+        <p>受講者の初期パスワードはユーザー名と同じです。</p>
+        <p class="mt-2">研修専用です。認証情報は平文で保存されます。</p>
+      </div>
+      -->
+    </section>
   </div>
 
   <div id="appScreen" class="hidden min-h-full">
     <header class="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur dark:border-stone-800 dark:bg-stone-900/95">
-      <div class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3">
+      <div class="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-3 p-4">
         <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300">
-            <i class="ri-task-line text-lg"></i>
-          </div>
-
+          <i class="ri-task-line text-2xl text-amber-500"></i>
           <div>
             <h1 class="text-lg font-semibold">ToDo</h1>
-            <p class="text-xs text-stone-500 dark:text-stone-400">業務向け ToDo 管理（研修用）</p>
+            <p class="text-xs text-stone-500">業務向け ToDo 管理（研修用）</p>
           </div>
         </div>
-
-        <div class="flex items-center gap-2">
-          <button id="resetTrainingDataBtn" type="button" class="hidden items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30">
-            <i class="ri-refresh-line"></i>
-            演習データを初期化
-          </button>
-
-          <button id="userManagementBtn" type="button" class="hidden items-center gap-2 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700/60 dark:bg-indigo-900/20 dark:text-indigo-200 dark:hover:bg-indigo-900/30">
-            <i class="ri-user-settings-line"></i>
-            ユーザー管理
-          </button>
-
-          <button id="themeToggle" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-600 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800" aria-label="テーマ切替">
-            <i class="ri-contrast-2-line text-lg"></i>
-          </button>
-
-          <div class="flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1.5 dark:border-stone-700 dark:bg-stone-900">
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-200">
-              <i class="ri-user-line"></i>
-            </div>
-
-            <div class="leading-tight">
-              <span id="currentUserName" class="block text-sm"></span>
-              <span id="currentUserRole" class="block text-[10px] text-stone-500 dark:text-stone-400"></span>
-            </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="resetTrainingDataBtn" class="btn hidden" type="button">演習データを初期化</button>
+          <button id="userManagementBtn" class="btn hidden" type="button">ユーザー管理</button>
+          <button id="themeToggle" class="btn" type="button" aria-label="テーマ切替"><i class="ri-contrast-2-line"></i></button>
+          <div class="rounded-full border border-stone-200 px-4 py-2 dark:border-stone-700">
+            <span id="currentUserName" class="text-sm"></span>
+            <span id="currentUserRole" class="ml-2 text-xs text-stone-500"></span>
           </div>
-
-          <button id="logoutBtn" type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-            <i class="ri-logout-box-r-line"></i>
-            <span class="hidden sm:inline">ログアウト</span>
-          </button>
+          <button id="logoutBtn" class="btn" type="button">ログアウト</button>
         </div>
       </div>
     </header>
 
-    <div id="flashContainer" class="pointer-events-none fixed inset-x-0 top-16 z-50 mx-auto flex max-w-3xl flex-col gap-2 px-4"></div>
+    <div id="flashContainer" class="pointer-events-none fixed inset-x-0 top-20 z-[80] mx-auto max-w-3xl space-y-2 px-4" aria-live="polite"></div>
 
-    <main class="mx-auto max-w-[1600px] px-4 py-4">
+    <main class="mx-auto max-w-[1600px] p-4">
       <div class="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside class="rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-stone-800 dark:bg-stone-900">
-          <div class="border-b border-stone-200 px-4 py-4 dark:border-stone-800">
-            <button id="openCreateBtn" type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500">
-              <i class="ri-add-line"></i>
-              追加
-            </button>
+        <aside class="panel">
+          <div class="border-b border-stone-200 p-4 dark:border-stone-800">
+            <button id="openCreateBtn" class="btn btn-primary w-full" type="button"><i class="ri-add-line"></i>追加</button>
           </div>
-
-          <div class="px-4 py-4">
+          <div class="p-4">
             <p class="mb-3 text-sm font-medium">すべてのカテゴリ</p>
             <div id="categoryList" class="space-y-1"></div>
           </div>
-
-          <div class="border-t border-stone-200 px-4 py-4 dark:border-stone-800">
-            <p class="mb-2 text-xs font-medium text-stone-500 dark:text-stone-400">研修環境</p>
-            <p class="text-xs leading-5 text-stone-500 dark:text-stone-400">
-              ToDo とカテゴリはこのブラウザのローカル領域に保存されます。
-            </p>
-          </div>
+          <p class="border-t border-stone-200 p-4 text-xs leading-5 text-stone-500 dark:border-stone-800">
+            データはこのブラウザ内に保存されます。同じブラウザでは各アカウントが同じ ToDo・カテゴリ・組織・担当者データを参照します。
+          </p>
         </aside>
 
         <section class="space-y-4">
-          <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
-            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <div>
-                  <label for="filterCategory" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">カテゴリ</label>
-                  <select id="filterCategory" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
-                    <option value="">すべて</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label for="filterDepartment" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">組織</label>
-                  <select id="filterDepartment" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
-                    <option value="">すべて</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label for="filterAssignee" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">担当者</label>
-                  <input id="filterAssignee" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="担当者で検索">
-                </div>
-
-                <div>
-                  <label for="filterKeyword" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">件名</label>
-                  <input id="filterKeyword" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="件名で検索">
-                </div>
-
-                <div>
-                  <label for="filterProgress" class="mb-1.5 block text-xs font-medium text-stone-600 dark:text-stone-300">進捗</label>
-                  <select id="filterProgress" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
-                    <option value="">すべて</option>
-                    <option value="0">未着手</option>
-                    <option value="20">20%</option>
-                    <option value="40">40%</option>
-                    <option value="60">60%</option>
-                    <option value="80">80%</option>
-                    <option value="100">完了</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="flex flex-wrap items-center gap-2">
-                <button id="searchBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-                  <i class="ri-search-line"></i>
-                  検索
-                </button>
-
-                <button id="completeSelectedBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-                  完了にする
-                </button>
-
-                <button id="deleteSelectedBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-                  削除する
-                </button>
-              </div>
+          <div class="panel p-4">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <label class="text-xs">カテゴリ<select id="filterCategory" class="field mt-1"></select></label>
+              <label class="text-xs">組織<select id="filterDepartment" class="field mt-1"></select></label>
+              <label class="text-xs">担当者<input id="filterAssignee" class="field mt-1" placeholder="担当者で検索"></label>
+              <label class="text-xs">件名<input id="filterKeyword" class="field mt-1" placeholder="件名で検索"></label>
+              <label class="text-xs">進捗
+                <select id="filterProgress" class="field mt-1">
+                  <option value="">すべて</option>
+                  <option value="0">未着手</option>
+                  <option value="20">20%</option>
+                  <option value="40">40%</option>
+                  <option value="60">60%</option>
+                  <option value="80">80%</option>
+                  <option value="100">完了</option>
+                </select>
+              </label>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button id="searchBtn" class="btn" type="button"><i class="ri-search-line"></i>検索</button>
+              <button id="completeSelectedBtn" class="btn" type="button">完了にする</button>
+              <button id="deleteSelectedBtn" class="btn" type="button">削除する</button>
             </div>
           </div>
 
-          <div class="grid gap-4 md:grid-cols-4">
-            <article class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
-              <p class="text-xs text-stone-500 dark:text-stone-400">全件数</p>
-              <p id="kpiAll" class="mt-2 text-2xl font-semibold tabular-nums">0</p>
-            </article>
-
-            <article class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
-              <p class="text-xs text-stone-500 dark:text-stone-400">進行中</p>
-              <p id="kpiProgress" class="mt-2 text-2xl font-semibold tabular-nums">0</p>
-            </article>
-
-            <article class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
-              <p class="text-xs text-stone-500 dark:text-stone-400">完了</p>
-              <p id="kpiDone" class="mt-2 text-2xl font-semibold tabular-nums">0</p>
-            </article>
-
-            <article class="rounded-2xl border border-stone-200 bg-white p-4 shadow-soft dark:border-stone-800 dark:bg-stone-900">
-              <p class="text-xs text-stone-500 dark:text-stone-400">期限超過</p>
-              <p id="kpiLate" class="mt-2 text-2xl font-semibold tabular-nums">0</p>
-            </article>
+          <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <article class="panel p-4"><p class="text-xs text-stone-500">全件数</p><p id="kpiAll" class="mt-2 text-2xl font-semibold">0</p></article>
+            <article class="panel p-4"><p class="text-xs text-stone-500">進行中</p><p id="kpiProgress" class="mt-2 text-2xl font-semibold">0</p></article>
+            <article class="panel p-4"><p class="text-xs text-stone-500">完了</p><p id="kpiDone" class="mt-2 text-2xl font-semibold">0</p></article>
+            <article class="panel p-4"><p class="text-xs text-stone-500">期限超過</p><p id="kpiLate" class="mt-2 text-2xl font-semibold">0</p></article>
           </div>
 
-          <div class="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-stone-800 dark:bg-stone-900">
+          <div class="panel overflow-hidden">
             <div class="overflow-x-auto">
               <table class="min-w-full text-sm">
-                <thead class="bg-stone-100 text-stone-700 dark:bg-stone-800/80 dark:text-stone-200">
+                <thead class="bg-stone-100 text-left dark:bg-stone-800">
                   <tr>
-                    <th class="w-10 px-3 py-3 text-left">
-                      <input id="checkAll" type="checkbox" class="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900">
-                    </th>
-                    <th class="px-3 py-3 text-left">優先度</th>
-                    <th class="px-3 py-3 text-left">件名</th>
-                    <th class="px-3 py-3 text-left">組織</th>
-                    <th class="px-3 py-3 text-left">担当者</th>
-                    <th class="px-3 py-3 text-left">カテゴリ</th>
-                    <th class="px-3 py-3 text-left">締切日</th>
-                    <th class="px-3 py-3 text-left">進捗</th>
+                    <th class="p-3"><input id="checkAll" type="checkbox" aria-label="表示中のToDoをすべて選択"></th>
+                    <th class="p-3">優先度</th>
+                    <th class="p-3">件名</th>
+                    <th class="p-3">組織</th>
+                    <th class="p-3">担当者</th>
+                    <th class="p-3">カテゴリ</th>
+                    <th class="p-3">締切日</th>
+                    <th class="p-3">進捗</th>
                   </tr>
                 </thead>
                 <tbody id="todoTableBody"></tbody>
               </table>
             </div>
-
-            <div class="flex items-center justify-end border-t border-stone-200 px-4 py-3 text-sm text-stone-500 dark:border-stone-800 dark:text-stone-400">
-              <span id="tableCount">0 - 0 / 0</span>
-            </div>
+            <div id="tableCount" class="border-t border-stone-200 p-3 text-right text-sm text-stone-500 dark:border-stone-800"></div>
           </div>
         </section>
       </div>
@@ -311,323 +229,136 @@
   <div id="modalRoot" class="fixed inset-0 z-[60] hidden"></div>
 
   <template id="todoFormTemplate">
-    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
-
-    <div class="fixed inset-0 overflow-y-auto p-4">
-      <div class="flex min-h-full items-center justify-center">
-        <div class="modal-panel-enter my-4 w-full max-w-3xl rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
-          <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
-            <h2 id="todoFormTitle" class="text-lg font-semibold">ToDo追加</h2>
-
-            <button type="button" data-close-modal class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800" aria-label="閉じる">
-              <i class="ri-close-line text-lg"></i>
-            </button>
-          </div>
-
-          <form id="todoForm" class="space-y-4 px-5 py-5">
-            <input type="hidden" id="todoId">
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
-              <label for="title" class="text-sm font-medium">件名 <span class="text-rose-500">必須</span></label>
-              <input id="title" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="件名を入力">
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
-              <label for="category" class="text-sm font-medium">カテゴリ <span class="text-rose-500">必須</span></label>
-
-              <div class="flex flex-col gap-2 sm:flex-row">
-                <select id="category" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30"></select>
-
-                <button type="button" id="openCategoryCreateBtn" class="inline-flex items-center justify-center rounded-lg border border-stone-300 bg-stone-50 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:hover:bg-stone-700">
-                  カテゴリに追加
-                </button>
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
-              <label for="department" class="text-sm font-medium">組織</label>
-              <select id="department" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30"></select>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
-              <label for="assignee" class="text-sm font-medium">担当者 <span class="text-rose-500">必須</span></label>
-              <select id="assignee" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30"></select>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-              <label class="pt-2 text-sm font-medium">開始日</label>
-
-              <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div class="relative">
-                  <i class="ri-calendar-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"></i>
-                  <input id="startDate" type="text" class="w-full rounded-lg border border-stone-300 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
-                </div>
-
-                <label class="inline-flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
-                  <input id="startDateNone" type="checkbox" class="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900">
-                  指定しない
-                </label>
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-              <label class="pt-2 text-sm font-medium">締切日</label>
-
-              <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div class="relative">
-                  <i class="ri-calendar-line pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"></i>
-                  <input id="dueDate" type="text" class="w-full rounded-lg border border-stone-300 bg-white py-2 pl-10 pr-3 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
-                </div>
-
-                <label class="inline-flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
-                  <input id="dueDateNone" type="checkbox" class="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900">
-                  指定しない
-                </label>
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-              <span class="pt-2 text-sm font-medium">優先度</span>
-
-              <div class="flex flex-wrap gap-4 text-sm">
-                <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="高い" class="text-teal-700 focus:ring-teal-600">高い</label>
-                <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="やや高い" class="text-teal-700 focus:ring-teal-600">やや高い</label>
-                <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="普通" class="text-teal-700 focus:ring-teal-600" checked>普通</label>
-                <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="やや低い" class="text-teal-700 focus:ring-teal-600">やや低い</label>
-                <label class="inline-flex items-center gap-2"><input type="radio" name="priority" value="低い" class="text-teal-700 focus:ring-teal-600">低い</label>
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)] md:items-center">
-              <label for="progress" class="text-sm font-medium">進捗</label>
-
-              <select id="progress" class="w-full max-w-xs rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30">
-                <option value="0">未着手</option>
-                <option value="20">20%</option>
-                <option value="40">40%</option>
-                <option value="60">60%</option>
-                <option value="80">80%</option>
-                <option value="100">100%</option>
-              </select>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-              <label for="memo" class="pt-2 text-sm font-medium">メモ</label>
-              <textarea id="memo" rows="6" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30"></textarea>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-              <span class="pt-2 text-sm font-medium">スケジュールへの表示</span>
-
-              <div class="flex flex-wrap gap-4 text-sm">
-                <label class="inline-flex items-center gap-2"><input type="radio" name="scheduleDisplay" value="表示" class="text-teal-700 focus:ring-teal-600" checked>表示する</label>
-                <label class="inline-flex items-center gap-2"><input type="radio" name="scheduleDisplay" value="非表示" class="text-teal-700 focus:ring-teal-600">表示しない</label>
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-              <span class="pt-2 text-sm font-medium">公開設定</span>
-
-              <div class="flex flex-wrap gap-4 text-sm">
-                <label class="inline-flex items-center gap-2"><input type="radio" name="visibility" value="公開" class="text-teal-700 focus:ring-teal-600" checked>公開</label>
-                <label class="inline-flex items-center gap-2"><input type="radio" name="visibility" value="非公開" class="text-teal-700 focus:ring-teal-600">非公開</label>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-              <button id="submitTodoBtn" type="submit" class="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500">
-                <i class="ri-save-line"></i>
-                <span>追加</span>
-              </button>
-
-              <button type="button" data-close-modal class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-                閉じる
-              </button>
-            </div>
-          </form>
+    <form id="todoForm" class="space-y-4">
+      <input id="todoId" type="hidden">
+      <div class="form-row">
+        <label for="title" class="text-sm font-medium">件名 <span class="text-rose-500">必須</span></label>
+        <input id="title" class="field" placeholder="件名を入力">
+      </div>
+      <div class="form-row">
+        <label for="category" class="text-sm font-medium">カテゴリ <span class="text-rose-500">必須</span></label>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <select id="category" class="field"></select>
+          <button id="openCategoryCreateBtn" type="button" class="btn shrink-0">カテゴリに追加</button>
         </div>
       </div>
-    </div>
+      <div class="form-row">
+        <label for="department" class="text-sm font-medium">組織 <span class="text-rose-500">必須</span></label>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <select id="department" class="field"></select>
+          <button id="openDepartmentCreateBtn" type="button" class="btn shrink-0">組織に追加</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="assignee" class="text-sm font-medium">担当者 <span class="text-rose-500">必須</span></label>
+        <div>
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <select id="assignee" class="field"></select>
+            <button id="openAssigneeCreateBtn" type="button" class="btn shrink-0">担当者に追加</button>
+          </div>
+          <p id="assigneeHint" class="mt-1 text-xs text-stone-500"></p>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="startDate" class="text-sm font-medium">開始日</label>
+        <div class="flex flex-wrap items-center gap-2">
+          <input id="startDate" class="field flex-1" placeholder="YYYY-MM-DD">
+          <label class="text-sm"><input id="startDateNone" type="checkbox"> 指定しない</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="dueDate" class="text-sm font-medium">締切日</label>
+        <div class="flex flex-wrap items-center gap-2">
+          <input id="dueDate" class="field flex-1" placeholder="YYYY-MM-DD">
+          <label class="text-sm"><input id="dueDateNone" type="checkbox"> 指定しない</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <span class="text-sm font-medium">優先度</span>
+        <div class="flex flex-wrap gap-3 text-sm">
+          <label><input name="priority" type="radio" value="高い"> 高い</label>
+          <label><input name="priority" type="radio" value="やや高い"> やや高い</label>
+          <label><input name="priority" type="radio" value="普通" checked> 普通</label>
+          <label><input name="priority" type="radio" value="やや低い"> やや低い</label>
+          <label><input name="priority" type="radio" value="低い"> 低い</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="progress" class="text-sm font-medium">進捗</label>
+        <select id="progress" class="field">
+          <option value="0">未着手</option><option value="20">20%</option>
+          <option value="40">40%</option><option value="60">60%</option>
+          <option value="80">80%</option><option value="100">100%</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="memo" class="text-sm font-medium">メモ</label>
+        <textarea id="memo" class="field" rows="6"></textarea>
+      </div>
+      <div class="form-row">
+        <span class="text-sm font-medium">スケジュールへの表示</span>
+        <div class="flex gap-4 text-sm">
+          <label><input name="scheduleDisplay" type="radio" value="表示" checked> 表示する</label>
+          <label><input name="scheduleDisplay" type="radio" value="非表示"> 表示しない</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <span class="text-sm font-medium">公開設定</span>
+        <div class="flex gap-4 text-sm">
+          <label><input name="visibility" type="radio" value="公開" checked> 公開</label>
+          <label><input name="visibility" type="radio" value="非公開"> 非公開</label>
+        </div>
+      </div>
+      <div class="flex justify-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+        <button id="submitTodoBtn" type="submit" class="btn btn-primary">追加</button>
+        <button type="button" data-close-modal class="btn">閉じる</button>
+      </div>
+    </form>
   </template>
 
-  <template id="todoDetailTemplate">
-    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
-
-    <div class="fixed inset-0 overflow-y-auto p-4">
-      <div class="flex min-h-full items-center justify-center">
-        <div class="modal-panel-enter my-4 w-full max-w-3xl rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
-          <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
-            <h2 class="text-lg font-semibold">ToDo詳細</h2>
-
-            <button type="button" data-close-modal class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800" aria-label="閉じる">
-              <i class="ri-close-line text-lg"></i>
-            </button>
-          </div>
-
-          <div class="px-5 py-4">
-            <div id="todoDetailBody" class="divide-y divide-stone-200 text-sm dark:divide-stone-800"></div>
-
-            <div class="mt-4 flex items-center justify-center gap-2">
-              <button id="detailEditBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-                編集する
-              </button>
-
-              <button id="detailDeleteBtn" type="button" class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-                削除する
-              </button>
-
-              <button type="button" data-close-modal class="inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-                閉じる
-              </button>
-            </div>
-          </div>
-        </div>
+  <template id="masterAddTemplate">
+    <form id="masterAddForm" class="space-y-4">
+      <div id="masterDepartmentRow" class="hidden">
+        <label for="masterDepartment" class="mb-1 block text-sm font-medium">所属組織</label>
+        <select id="masterDepartment" class="field"></select>
       </div>
-    </div>
-  </template>
-
-  <template id="confirmTemplate">
-    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
-
-    <div class="fixed inset-0 flex items-center justify-center p-4">
-      <div class="modal-panel-enter w-full max-w-md rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
-        <div class="border-b border-stone-200 px-5 py-4 dark:border-stone-800">
-          <h2 id="confirmTitle" class="text-lg font-semibold">確認</h2>
-        </div>
-
-        <div class="px-5 py-5">
-          <p id="confirmMessage" class="text-sm leading-6 text-stone-700 dark:text-stone-200"></p>
-
-          <div class="mt-5 flex items-center justify-end gap-2">
-            <button type="button" data-close-modal class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-              キャンセル
-            </button>
-
-            <button id="confirmOkBtn" type="button" class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500">
-              実行する
-            </button>
-          </div>
-        </div>
+      <div>
+        <label id="masterNameLabel" for="masterName" class="mb-1 block text-sm font-medium"></label>
+        <input id="masterName" class="field" maxlength="100" required>
       </div>
-    </div>
-  </template>
-
-  <template id="categoryTemplate">
-    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
-
-    <div class="fixed inset-0 flex items-center justify-center p-4">
-      <div class="modal-panel-enter w-full max-w-md rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
-        <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
-          <h2 class="text-lg font-semibold">カテゴリ追加</h2>
-
-          <button type="button" data-close-modal class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800" aria-label="閉じる">
-            <i class="ri-close-line text-lg"></i>
-          </button>
-        </div>
-
-        <form id="categoryForm" class="space-y-4 px-5 py-5">
-          <div>
-            <label for="newCategoryName" class="mb-1.5 block text-sm font-medium">
-              カテゴリ名 <span class="text-rose-500">必須</span>
-            </label>
-
-            <input id="newCategoryName" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-teal-900/30" placeholder="新しいカテゴリ名を入力">
-          </div>
-
-          <div class="flex items-center justify-end gap-2">
-            <button type="button" data-close-modal class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-              閉じる
-            </button>
-
-            <button type="submit" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500">
-              追加
-            </button>
-          </div>
-        </form>
+      <p id="masterAddHint" class="text-xs text-stone-500"></p>
+      <p id="masterAddError" class="hidden text-sm text-rose-600" role="alert"></p>
+      <div class="flex justify-end gap-2">
+        <button type="button" data-close-modal class="btn">キャンセル</button>
+        <button type="submit" class="btn btn-primary">追加</button>
       </div>
-    </div>
+    </form>
   </template>
 
   <template id="userManagementTemplate">
-    <div class="modal-enter fixed inset-0 bg-black/35 dark:bg-black/55"></div>
-
-    <div class="fixed inset-0 overflow-y-auto p-4">
-      <div class="flex min-h-full items-center justify-center">
-        <div class="modal-panel-enter my-4 w-full max-w-4xl rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
-          <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
-            <div>
-              <h2 class="text-lg font-semibold">ユーザー管理</h2>
-              <p class="mt-1 text-xs text-stone-500 dark:text-stone-400">研修用のため、ユーザー情報とパスワードはブラウザのローカルストレージに保存されます。</p>
-            </div>
-
-            <button type="button" data-close-modal class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:text-stone-300 dark:hover:bg-stone-800" aria-label="閉じる">
-              <i class="ri-close-line text-lg"></i>
-            </button>
-          </div>
-
-          <div class="grid gap-6 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div>
-              <h3 class="mb-3 text-sm font-semibold">登録済みユーザー</h3>
-
-              <div class="overflow-x-auto rounded-xl border border-stone-200 dark:border-stone-800">
-                <table class="min-w-full text-sm">
-                  <thead class="bg-stone-100 text-left dark:bg-stone-800">
-                    <tr>
-                      <th class="px-3 py-2.5">表示名</th>
-                      <th class="px-3 py-2.5">ユーザー名</th>
-                      <th class="px-3 py-2.5">権限</th>
-                      <th class="px-3 py-2.5">パスワード</th>
-                      <th class="px-3 py-2.5"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="userTableBody"></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-stone-700 dark:bg-stone-800/50">
-              <h3 class="mb-3 text-sm font-semibold">ユーザー追加</h3>
-
-              <form id="userForm" class="space-y-3">
-                <div>
-                  <label for="newUserDisplayName" class="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-300">表示名</label>
-                  <input id="newUserDisplayName" type="text" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-indigo-900/30" placeholder="例: 研修 太郎">
-                </div>
-
-                <div>
-                  <label for="newUsername" class="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-300">ユーザー名</label>
-                  <input id="newUsername" type="text" autocomplete="off" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-indigo-900/30" placeholder="例: trainee01">
-                </div>
-
-                <div>
-                  <label for="newUserPassword" class="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-300">パスワード</label>
-                  <input id="newUserPassword" type="text" autocomplete="off" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-indigo-900/30" placeholder="4文字以上">
-                </div>
-
-                <div>
-                  <label for="newUserRole" class="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-300">権限</label>
-                  <select id="newUserRole" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 dark:border-stone-700 dark:bg-stone-950 dark:focus:ring-indigo-900/30">
-                    <option value="trainee">受講者</option>
-                    <option value="admin">管理者</option>
-                  </select>
-                </div>
-
-                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <i class="ri-user-add-line"></i>
-                  ユーザーを追加
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <div class="flex justify-end border-t border-stone-200 px-5 py-4 dark:border-stone-800">
-            <button type="button" data-close-modal class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800">
-              閉じる
-            </button>
-          </div>
+    <p class="mb-4 text-xs text-amber-700 dark:text-amber-300">研修専用です。パスワードは平文で保存・表示されます。</p>
+    <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div>
+        <p id="userCount" class="mb-2 text-sm"></p>
+        <div class="max-h-[420px] overflow-auto rounded-lg border border-stone-200 dark:border-stone-700">
+          <table class="min-w-full text-sm">
+            <thead class="sticky top-0 bg-stone-100 text-left dark:bg-stone-800">
+              <tr><th class="p-2">表示名</th><th class="p-2">ユーザー名</th><th class="p-2">権限</th><th class="p-2">パスワード</th><th class="p-2"></th></tr>
+            </thead>
+            <tbody id="userTableBody"></tbody>
+          </table>
         </div>
       </div>
+      <form id="userForm" class="space-y-3">
+        <h3 class="font-medium">ユーザー追加</h3>
+        <label class="block text-xs">表示名<input id="newUserDisplayName" class="field mt-1" required></label>
+        <label class="block text-xs">ユーザー名<input id="newUsername" class="field mt-1" autocomplete="off" required minlength="3"></label>
+        <label class="block text-xs">パスワード<input id="newUserPassword" class="field mt-1" autocomplete="off" required minlength="4"></label>
+        <label class="block text-xs">権限<select id="newUserRole" class="field mt-1"><option value="trainee">受講者</option><option value="admin">管理者</option></select></label>
+        <button type="submit" class="btn btn-primary w-full">ユーザーを追加</button>
+      </form>
     </div>
+    <div class="mt-4 text-right"><button type="button" data-close-modal class="btn">閉じる</button></div>
   </template>
 
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -635,196 +366,102 @@
 
   <script>
     (() => {
+      'use strict';
+
       const STORAGE_KEYS = {
         todos: 'training-todo-app:todos',
         categories: 'training-todo-app:categories',
+        groups: 'training-todo-app:groups',
         filters: 'training-todo-app:filters',
         theme: 'training-todo-app:theme',
         users: 'training-todo-app:users',
         session: 'training-todo-app:session',
+        accountMigration: 'training-todo-app:accounts-302-399:v1',
       };
 
-      /*
-       * 研修用途の初期ログイン情報です。
-       * 管理者は、この配列を編集するか、ログイン後の「ユーザー管理」から受講者を追加できます。
-       * このサンプルはブラウザだけで動く研修アプリのため、パスワードはローカルストレージに平文保存されます。
-       * 実運用では必ずサーバー側の認証・ハッシュ化・HTTPS を使用してください。
-       */
+      // 管理者1件 + 受講者99件 = 初期アカウント100件。
       const DEFAULT_USERS = [
-        {
-          id: 'user-admin',
-          username: 'admin',
-          password: 'admin123',
-          displayName: '研修管理者',
-          role: 'admin',
-        },
-        {
-          id: 'user-test301',
-          username: 'test301',
-          password: 'test301',
-          displayName: 'テスト301',
-          role: 'trainee',
-        },
+        { id: 'user-admin', username: 'admin', password: 'admin123', displayName: '研修管理者', role: 'admin' },
+        { id: 'user-test301', username: 'test301', password: 'test301', displayName: 'テスト301', role: 'trainee' },
+        ...Array.from({ length: 98 }, (_, index) => {
+          const number = index + 302;
+          return {
+            id: `user-test${number}`,
+            username: `test${number}`,
+            password: `test${number}`,
+            displayName: `テスト${number}`,
+            role: 'trainee',
+          };
+        }),
       ];
 
-      const GROUPS = {
-        '営業部': ['山田 太郎', '佐藤 花子', '中村 恒一'],
+      const DEFAULT_GROUPS = {
+        '営業部': ['山田 太郎', '佐藤 花子', '中村 豪泰'],
         '開発部': ['鈴木 一郎', '田中 健', '小林 遥'],
         '管理部': ['高橋 美咲', '伊藤 誠', '加藤 由紀'],
       };
 
       const DEFAULT_CATEGORIES = ['人事', '営業', '開発', '管理', '未分類'];
-
-      const state = {
-        users: loadJSON(STORAGE_KEYS.users, DEFAULT_USERS),
-        currentUser: null,
-        categories: loadJSON(STORAGE_KEYS.categories, DEFAULT_CATEGORIES),
-        todos: loadJSON(STORAGE_KEYS.todos, getDefaultTodos()),
-        filters: normalizeFilters(loadJSON(STORAGE_KEYS.filters, {
-          category: '',
-          department: '',
-          assignee: '',
-          keyword: '',
-          progress: '',
-          selectedCategorySide: '',
-        })),
-        selectedIds: new Set(),
-        flatpickrInstances: [],
-      };
-
-      const els = {
-        loginScreen: document.getElementById('loginScreen'),
-        appScreen: document.getElementById('appScreen'),
-        loginForm: document.getElementById('loginForm'),
-        loginUsername: document.getElementById('loginUsername'),
-        loginPassword: document.getElementById('loginPassword'),
-        loginError: document.getElementById('loginError'),
-
-        currentUserName: document.getElementById('currentUserName'),
-        currentUserRole: document.getElementById('currentUserRole'),
-        logoutBtn: document.getElementById('logoutBtn'),
-        userManagementBtn: document.getElementById('userManagementBtn'),
-
-        categoryList: document.getElementById('categoryList'),
-        filterCategory: document.getElementById('filterCategory'),
-        filterDepartment: document.getElementById('filterDepartment'),
-        filterAssignee: document.getElementById('filterAssignee'),
-        filterKeyword: document.getElementById('filterKeyword'),
-        filterProgress: document.getElementById('filterProgress'),
-        searchBtn: document.getElementById('searchBtn'),
-        tableBody: document.getElementById('todoTableBody'),
-        checkAll: document.getElementById('checkAll'),
-        tableCount: document.getElementById('tableCount'),
-        openCreateBtn: document.getElementById('openCreateBtn'),
-        completeSelectedBtn: document.getElementById('completeSelectedBtn'),
-        deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
-        resetTrainingDataBtn: document.getElementById('resetTrainingDataBtn'),
-        flashContainer: document.getElementById('flashContainer'),
-        modalRoot: document.getElementById('modalRoot'),
-        themeToggle: document.getElementById('themeToggle'),
-        kpiAll: document.getElementById('kpiAll'),
-        kpiProgress: document.getElementById('kpiProgress'),
-        kpiDone: document.getElementById('kpiDone'),
-        kpiLate: document.getElementById('kpiLate'),
-      };
-
-      function getDefaultTodos() {
-        return [
-          {
-            id: 'sample-001',
-            category: '人事',
-            department: '営業部',
-            assigneeName: '佐藤 花子',
-            title: '新卒採用計画を確認する',
-            startDate: '2026-08-20',
-            dueDate: '2026-09-10',
-            priority: '高い',
-            progress: 40,
-            memo: '研修用サンプルです。',
-            visibility: '非公開',
-            scheduleDisplay: '表示',
-            createdAt: '2026-08-20',
-            updatedAt: '2026-08-20',
-            updatedBy: 'テスト301',
-          },
-          {
-            id: 'sample-002',
-            category: '営業',
-            department: '営業部',
-            assigneeName: '山田 太郎',
-            title: '顧客向け提案資料を作成する',
-            startDate: '2026-08-25',
-            dueDate: '2026-09-30',
-            priority: 'やや高い',
-            progress: 20,
-            memo: 'レビュー日程を調整する。',
-            visibility: '公開',
-            scheduleDisplay: '表示',
-            createdAt: '2026-08-20',
-            updatedAt: '2026-08-20',
-            updatedBy: 'テスト301',
-          },
-          {
-            id: 'sample-003',
-            category: '開発',
-            department: '開発部',
-            assigneeName: '鈴木 一郎',
-            title: 'リリース前テストを実施する',
-            startDate: '2026-09-01',
-            dueDate: '2026-09-15',
-            priority: '高い',
-            progress: 60,
-            memo: 'テスト観点一覧を参照してください。',
-            visibility: '非公開',
-            scheduleDisplay: '非表示',
-            createdAt: '2026-08-20',
-            updatedAt: '2026-08-20',
-            updatedBy: 'テスト301',
-          },
-          {
-            id: 'sample-004',
-            category: '管理',
-            department: '管理部',
-            assigneeName: '高橋 美咲',
-            title: '月次経費を確認する',
-            startDate: '2026-08-28',
-            dueDate: '2026-09-05',
-            priority: '普通',
-            progress: 100,
-            memo: '完了済みのサンプルです。',
-            visibility: '公開',
-            scheduleDisplay: '表示',
-            createdAt: '2026-08-20',
-            updatedAt: '2026-08-20',
-            updatedBy: 'テスト301',
-          },
-        ];
-      }
-
-      function cryptoId() {
-        if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-        return `id-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
-      }
+      const $ = id => document.getElementById(id);
+      const clone = value => JSON.parse(JSON.stringify(value));
+      const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+      const emptyFilters = () => ({
+        category: '', department: '', assignee: '', keyword: '',
+        progress: '', selectedCategorySide: '',
+      });
 
       function loadJSON(key, fallback) {
         try {
-          const raw = localStorage.getItem(key);
-          return raw ? JSON.parse(raw) : fallback;
+          const value = localStorage.getItem(key);
+          return value === null ? clone(fallback) : JSON.parse(value);
         } catch (_) {
-          return fallback;
+          return clone(fallback);
         }
+      }
+
+      function showFlash(type, message) {
+        const element = document.createElement('div');
+        element.className = `pointer-events-auto flex items-center justify-between gap-3 rounded-lg border bg-white p-3 shadow-lg dark:bg-stone-900 ${
+          type === 'error'
+            ? 'border-rose-400 text-rose-600'
+            : 'border-teal-400 text-teal-700 dark:text-teal-300'
+        }`;
+        const text = document.createElement('span');
+        text.className = 'text-sm';
+        text.textContent = message;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = '×';
+        button.setAttribute('aria-label', '通知を閉じる');
+        button.onclick = () => element.remove();
+        element.append(text, button);
+        $('flashContainer').append(element);
+        setTimeout(() => element.remove(), 4000);
       }
 
       function saveJSON(key, value) {
         try {
           localStorage.setItem(key, JSON.stringify(value));
-        } catch (_) {}
+          return true;
+        } catch (_) {
+          showFlash('error', '保存できませんでした。ブラウザのストレージ設定・空き容量を確認してください。');
+          return false;
+        }
       }
 
       function removeStorage(key) {
-        try {
-          localStorage.removeItem(key);
-        } catch (_) {}
+        try { localStorage.removeItem(key); } catch (_) {}
+      }
+
+      function cryptoId() {
+        return window.crypto?.randomUUID?.() ||
+          `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, character => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        })[character]);
       }
 
       function todayStr() {
@@ -832,1092 +469,935 @@
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       }
 
-      function normalizeFilterValue(value) {
-        return value === 'all' ? '' : (value ?? '');
+      function formatDate(value, short = false) {
+        if (!value) return '指定なし';
+        const d = new Date(value + 'T00:00:00');
+        if (Number.isNaN(d.getTime())) return value;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+        return short
+          ? `${year}/${month}/${day}(${weekday})`
+          : `${year}年${month}月${day}日(${weekday})`;
       }
 
-      function normalizeFilters(filters) {
-        return {
-          category: normalizeFilterValue(filters?.category),
-          department: normalizeFilterValue(filters?.department),
-          assignee: filters?.assignee ?? '',
-          keyword: filters?.keyword ?? '',
-          progress: normalizeFilterValue(filters?.progress),
-          selectedCategorySide: normalizeFilterValue(filters?.selectedCategorySide),
-        };
+      function getDefaultTodos() {
+        return [
+          { id: 'sample-001', category: '人事', department: '営業部', assigneeName: '佐藤 花子', title: '新卒採用計画を確認する', startDate: '2026-08-20', dueDate: '2026-09-10', priority: '高い', progress: 40, memo: '研修用サンプルです。', visibility: '非公開', scheduleDisplay: '表示', createdAt: '2026-08-20', updatedAt: '2026-08-20', updatedBy: 'テスト301' },
+          { id: 'sample-002', category: '営業', department: '営業部', assigneeName: '山田 太郎', title: '顧客向け提案資料を作成する', startDate: '2026-08-25', dueDate: '2026-09-30', priority: 'やや高い', progress: 20, memo: 'レビュー日程を調整する。', visibility: '公開', scheduleDisplay: '表示', createdAt: '2026-08-20', updatedAt: '2026-08-20', updatedBy: 'テスト301' },
+          { id: 'sample-003', category: '開発', department: '開発部', assigneeName: '鈴木 一郎', title: 'リリース前テストを実施する', startDate: '2026-09-01', dueDate: '2026-09-15', priority: '高い', progress: 60, memo: 'テスト観点一覧を参照してください。', visibility: '非公開', scheduleDisplay: '非表示', createdAt: '2026-08-20', updatedAt: '2026-08-20', updatedBy: 'テスト301' },
+          { id: 'sample-004', category: '管理', department: '管理部', assigneeName: '高橋 美咲', title: '月次経費を確認する', startDate: '2026-08-28', dueDate: '2026-09-05', priority: '普通', progress: 100, memo: '完了済みのサンプルです。', visibility: '公開', scheduleDisplay: '表示', createdAt: '2026-08-20', updatedAt: '2026-08-20', updatedBy: 'テスト301' },
+        ];
       }
 
-      function escapeHtml(str) {
-        return String(str ?? '')
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
-          .replaceAll('"', '&quot;')
-          .replaceAll("'", '&#39;');
+      function normalizeGroups(value) {
+        const groups = Object.create(null);
+        const source = value && typeof value === 'object' && !Array.isArray(value)
+          ? value
+          : DEFAULT_GROUPS;
+
+        Object.entries(source).forEach(([department, people]) => {
+          if (department.trim() && Array.isArray(people)) {
+            groups[department] = [...new Set(
+              people.filter(name => typeof name === 'string' && name.trim())
+            )];
+          }
+        });
+        return groups;
       }
 
-      function formatDateJP(dateStr) {
-        if (!dateStr) return '指定なし';
+      const state = {
+        users: loadJSON(STORAGE_KEYS.users, DEFAULT_USERS),
+        currentUser: null,
+        todos: loadJSON(STORAGE_KEYS.todos, getDefaultTodos()),
+        categories: loadJSON(STORAGE_KEYS.categories, DEFAULT_CATEGORIES),
+        groups: normalizeGroups(loadJSON(STORAGE_KEYS.groups, DEFAULT_GROUPS)),
+        filters: { ...emptyFilters(), ...loadJSON(STORAGE_KEYS.filters, {}) },
+        selectedIds: new Set(),
+        flatpickrInstances: [],
+      };
 
-        const d = new Date(dateStr + 'T00:00:00');
-        if (Number.isNaN(d.getTime())) return dateStr;
+      if (!Array.isArray(state.users)) state.users = clone(DEFAULT_USERS);
+      if (!Array.isArray(state.todos)) state.todos = getDefaultTodos();
+      if (!Array.isArray(state.categories)) state.categories = [...DEFAULT_CATEGORIES];
 
-        const week = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-        return `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日(${week})`;
-      }
-
-      function formatDateShort(dateStr) {
-        if (!dateStr) return '指定なし';
-
-        const d = new Date(dateStr + 'T00:00:00');
-        if (Number.isNaN(d.getTime())) return dateStr;
-
-        const week = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-        return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}(${week})`;
-      }
-
-      function priorityBars(priority) {
-        const countMap = {
-          '高い': 4,
-          'やや高い': 3,
-          '普通': 2,
-          'やや低い': 1,
-          '低い': 1,
-        };
-
-        const active = countMap[priority] || 1;
-        let html = '<div class="flex items-center gap-0.5">';
-
-        for (let i = 0; i < 4; i += 1) {
-          html += `<span class="inline-block h-3 w-1 rounded-sm ${i < active ? 'bg-amber-500' : 'bg-stone-200 dark:bg-stone-700'}"></span>`;
+      // 既存ToDoの組織・担当者も候補に残し、編集時に選択値が失われないようにします。
+      state.todos.forEach(todo => {
+        if (typeof todo.department !== 'string' || !todo.department.trim()) return;
+        if (!hasOwn(state.groups, todo.department)) state.groups[todo.department] = [];
+        if (todo.assigneeName && !state.groups[todo.department].includes(todo.assigneeName)) {
+          state.groups[todo.department].push(todo.assigneeName);
         }
+      });
 
-        html += '</div>';
-        return html;
-      }
+      const isAdmin = () => state.currentUser?.role === 'admin';
+      const roleLabel = role => role === 'admin' ? '管理者' : '受講者';
+      const progressLabel = progress => Number(progress) === 0 ? '未着手' : `${progress}%`;
+      const isLate = todo => Boolean(
+        todo.dueDate &&
+        Number(todo.progress) < 100 &&
+        new Date(todo.dueDate + 'T23:59:59') < new Date()
+      );
+      const departmentNames = () => Object.keys(state.groups);
+      const peopleFor = department => hasOwn(state.groups, department)
+        ? state.groups[department]
+        : [];
 
-      function progressLabel(progress) {
-        return Number(progress) === 0 ? '未着手' : `${progress}%`;
-      }
+      function migrateAccounts() {
+        if (loadJSON(STORAGE_KEYS.accountMigration, false)) return;
+        const usernames = new Set(state.users.map(user => String(user.username).toLowerCase()));
+        const ids = new Set(state.users.map(user => user.id));
 
-      function isLate(todo) {
-        if (!todo.dueDate || Number(todo.progress) >= 100) return false;
-        return new Date(todo.dueDate + 'T23:59:59') < new Date();
-      }
+        DEFAULT_USERS.slice(2).forEach(user => {
+          if (usernames.has(user.username.toLowerCase())) return;
+          const added = clone(user);
+          if (ids.has(added.id)) added.id = cryptoId();
+          state.users.push(added);
+          usernames.add(added.username.toLowerCase());
+          ids.add(added.id);
+        });
 
-      function showFlash(type, message) {
-        const colorMap = {
-          success: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/30 dark:text-emerald-200',
-          error: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/30 dark:text-rose-200',
-          info: 'border-stone-200 bg-white text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100',
-        };
-
-        const iconMap = {
-          success: 'ri-checkbox-circle-line',
-          error: 'ri-error-warning-line',
-          info: 'ri-information-line',
-        };
-
-        const el = document.createElement('div');
-
-        el.className = `pointer-events-auto flash-enter flex items-start gap-3 rounded-xl border px-4 py-3 shadow-soft ${colorMap[type] || colorMap.info}`;
-        el.innerHTML = `
-          <i class="${iconMap[type] || iconMap.info} mt-0.5 text-lg"></i>
-          <div class="min-w-0 flex-1 text-sm leading-6">${escapeHtml(message)}</div>
-          <button type="button" class="text-lg opacity-70 transition hover:opacity-100" aria-label="閉じる">
-            <i class="ri-close-line"></i>
-          </button>
-        `;
-
-        els.flashContainer.appendChild(el);
-
-        const remove = () => el.remove();
-        el.querySelector('button').addEventListener('click', remove);
-        setTimeout(remove, 3200);
+        if (saveJSON(STORAGE_KEYS.users, state.users)) {
+          saveJSON(STORAGE_KEYS.accountMigration, true);
+        }
       }
 
       function saveState() {
         saveJSON(STORAGE_KEYS.todos, state.todos);
         saveJSON(STORAGE_KEYS.categories, state.categories);
-        saveJSON(STORAGE_KEYS.filters, normalizeFilters(state.filters));
+        saveJSON(STORAGE_KEYS.groups, state.groups);
+        saveJSON(STORAGE_KEYS.filters, state.filters);
       }
 
-      function saveUsers() {
-        saveJSON(STORAGE_KEYS.users, state.users);
+      function clearSelection() {
+        state.selectedIds.clear();
+        $('checkAll').checked = false;
+        $('checkAll').indeterminate = false;
       }
 
-      function roleLabel(role) {
-        return role === 'admin' ? '管理者' : '受講者';
-      }
-
-      function isAdmin() {
-        return state.currentUser?.role === 'admin';
-      }
-
-      function showLoginError(message) {
-        els.loginError.textContent = message;
-        els.loginError.classList.remove('hidden');
-      }
-
-      function clearLoginError() {
-        els.loginError.textContent = '';
-        els.loginError.classList.add('hidden');
-      }
-
-      function syncCurrentUserView() {
-        if (!state.currentUser) return;
-
-        els.currentUserName.textContent = state.currentUser.displayName;
-        els.currentUserRole.textContent = roleLabel(state.currentUser.role);
-
-        els.resetTrainingDataBtn.classList.toggle('hidden', !isAdmin());
-        els.resetTrainingDataBtn.classList.toggle('inline-flex', isAdmin());
-
-        els.userManagementBtn.classList.toggle('hidden', !isAdmin());
-        els.userManagementBtn.classList.toggle('inline-flex', isAdmin());
-      }
-
-      function showApp() {
-        els.loginScreen.classList.add('hidden');
-        els.appScreen.classList.remove('hidden');
-        syncCurrentUserView();
-        render();
+      function loginError(message = '') {
+        $('loginError').textContent = message;
+        $('loginError').classList.toggle('hidden', !message);
       }
 
       function showLogin() {
         closeModal();
-        els.appScreen.classList.add('hidden');
-        els.loginScreen.classList.remove('hidden');
-        els.loginPassword.value = '';
-        clearLoginError();
-
-        setTimeout(() => {
-          els.loginUsername.focus();
-        }, 0);
+        $('appScreen').classList.add('hidden');
+        $('loginScreen').classList.remove('hidden');
+        $('loginPassword').value = '';
+        loginError();
+        $('loginUsername').focus();
       }
 
-      function setSession(user) {
-        const session = {
-          userId: user.id,
-          username: user.username,
-          loggedInAt: new Date().toISOString(),
-        };
-
-        saveJSON(STORAGE_KEYS.session, session);
-      }
-
-      function restoreSession() {
-        const session = loadJSON(STORAGE_KEYS.session, null);
-
-        if (!session?.userId) return false;
-
-        const user = state.users.find((item) => item.id === session.userId);
-
-        if (!user) {
-          removeStorage(STORAGE_KEYS.session);
-          return false;
-        }
-
-        state.currentUser = user;
-        return true;
-      }
-
-      function login(username, password) {
-        const user = state.users.find((item) => {
-          return item.username === username && item.password === password;
-        });
-
-        if (!user) {
-          showLoginError('ユーザー名またはパスワードが正しくありません。');
-          return;
-        }
-
-        state.currentUser = user;
-        setSession(user);
-        clearLoginError();
-        showApp();
+      function showApp() {
+        $('loginScreen').classList.add('hidden');
+        $('appScreen').classList.remove('hidden');
+        $('currentUserName').textContent = state.currentUser.displayName;
+        $('currentUserRole').textContent = roleLabel(state.currentUser.role);
+        $('resetTrainingDataBtn').classList.toggle('hidden', !isAdmin());
+        $('userManagementBtn').classList.toggle('hidden', !isAdmin());
+        render();
       }
 
       function logout() {
         removeStorage(STORAGE_KEYS.session);
         state.currentUser = null;
         clearSelection();
+        $('flashContainer').replaceChildren();
         showLogin();
       }
 
-      function syncFilterInputs() {
-        els.filterCategory.value = normalizeFilterValue(state.filters.category);
-        els.filterDepartment.value = normalizeFilterValue(state.filters.department);
-        els.filterAssignee.value = state.filters.assignee;
-        els.filterKeyword.value = state.filters.keyword;
-        els.filterProgress.value = normalizeFilterValue(state.filters.progress);
-      }
+      function fillSelect(element, values, selected = '', blank = false, emptyLabel = '候補がありません') {
+        if (!values.length && !blank) {
+          element.innerHTML = `<option value="">${escapeHtml(emptyLabel)}</option>`;
+          element.value = '';
+          return;
+        }
 
-      function clearSelection() {
-        state.selectedIds.clear();
-        els.checkAll.checked = false;
+        element.innerHTML =
+          (blank ? '<option value="">すべて</option>' : '') +
+          values.map(value =>
+            `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`
+          ).join('');
+
+        element.value = values.includes(selected)
+          ? selected
+          : (blank ? '' : (values[0] || ''));
       }
 
       function getFilteredTodos() {
-        return state.todos.filter((todo) => {
-          const categoryFilter = normalizeFilterValue(state.filters.category);
-          const departmentFilter = normalizeFilterValue(state.filters.department);
-          const progressFilter = normalizeFilterValue(state.filters.progress);
-          const sideCategoryFilter = normalizeFilterValue(state.filters.selectedCategorySide);
-
-          const categoryOk = !categoryFilter || todo.category === categoryFilter;
-          const departmentOk = !departmentFilter || todo.department === departmentFilter;
-          const assigneeOk = !state.filters.assignee || todo.assigneeName.includes(state.filters.assignee);
-          const keywordOk = !state.filters.keyword || todo.title.includes(state.filters.keyword);
-          const progressOk = progressFilter === '' || String(todo.progress) === progressFilter;
-          const sideCategoryOk = !sideCategoryFilter || todo.category === sideCategoryFilter;
-
-          return categoryOk && departmentOk && assigneeOk && keywordOk && progressOk && sideCategoryOk;
-        });
-      }
-
-      function renderCategorySidebar() {
-        const selectedSide = normalizeFilterValue(state.filters.selectedCategorySide);
-        const allActive = !selectedSide;
-
-        const list = [
-          {
-            label: 'すべてのカテゴリ',
-            active: allActive,
-            count: state.todos.length,
-            value: '',
-          },
-          ...state.categories.map((name) => ({
-            label: name,
-            active: selectedSide === name,
-            count: state.todos.filter((todo) => todo.category === name).length,
-            value: name,
-          })),
-        ];
-
-        els.categoryList.innerHTML = list.map((item) => `
-          <button type="button" data-side-category="${escapeHtml(item.value)}" class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${item.active ? 'bg-stone-100 text-stone-900 dark:bg-stone-800 dark:text-stone-100' : 'text-stone-700 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800/70'}">
-            <span class="truncate">${escapeHtml(item.label)}</span>
-            <span class="tabular-nums text-xs text-stone-400">${item.count}</span>
-          </button>
-        `).join('');
-      }
-
-      function renderFilterCategory() {
-        const current = normalizeFilterValue(state.filters.category);
-
-        els.filterCategory.innerHTML =
-          '<option value="">すべて</option>' +
-          state.categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join('');
-
-        els.filterCategory.value = current;
-      }
-
-      function renderFilterDepartment() {
-        const current = normalizeFilterValue(state.filters.department);
-
-        els.filterDepartment.innerHTML =
-          '<option value="">すべて</option>' +
-          Object.keys(GROUPS).map((department) => `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`).join('');
-
-        els.filterDepartment.value = current;
+        const f = state.filters;
+        return state.todos.filter(todo =>
+          (!f.category || todo.category === f.category) &&
+          (!f.department || todo.department === f.department) &&
+          (!f.assignee || String(todo.assigneeName).includes(f.assignee)) &&
+          (!f.keyword || String(todo.title).includes(f.keyword)) &&
+          (f.progress === '' || String(todo.progress) === String(f.progress)) &&
+          (!f.selectedCategorySide || todo.category === f.selectedCategorySide)
+        );
       }
 
       function renderKPIs() {
-        const all = state.todos.length;
-        const done = state.todos.filter((todo) => Number(todo.progress) >= 100).length;
-        const progress = state.todos.filter((todo) => Number(todo.progress) > 0 && Number(todo.progress) < 100).length;
-        const late = state.todos.filter(isLate).length;
-
-        els.kpiAll.textContent = all;
-        els.kpiDone.textContent = done;
-        els.kpiProgress.textContent = progress;
-        els.kpiLate.textContent = late;
+        $('kpiAll').textContent = state.todos.length;
+        $('kpiProgress').textContent = state.todos.filter(t => Number(t.progress) > 0 && Number(t.progress) < 100).length;
+        $('kpiDone').textContent = state.todos.filter(t => Number(t.progress) >= 100).length;
+        $('kpiLate').textContent = state.todos.filter(isLate).length;
       }
 
       function renderTable() {
         const todos = getFilteredTodos();
 
-        if (!todos.length) {
-          els.tableBody.innerHTML = `
-            <tr>
-              <td colspan="8" class="px-4 py-16 text-center">
-                <div class="mx-auto max-w-md">
-                  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-stone-100 text-stone-400 dark:bg-stone-800 dark:text-stone-500">
-                    <i class="ri-inbox-line text-2xl"></i>
-                  </div>
-                  <p class="mt-4 text-sm font-medium">該当するデータがありません。</p>
-                  <p class="mt-1 text-sm text-stone-500 dark:text-stone-400">「追加」から ToDo を登録できます。</p>
-                </div>
-              </td>
-            </tr>
-          `;
+        $('todoTableBody').innerHTML = todos.map(todo => `
+          <tr class="border-t border-stone-200 dark:border-stone-800 ${isLate(todo) ? 'bg-rose-50 dark:bg-rose-900/10' : ''}">
+            <td class="p-3"><input type="checkbox" data-row-check="${escapeHtml(todo.id)}" ${state.selectedIds.has(todo.id) ? 'checked' : ''} aria-label="${escapeHtml(todo.title)}を選択"></td>
+            <td class="p-3 whitespace-nowrap">${escapeHtml(todo.priority)}</td>
+            <td class="p-3">
+              <button type="button" data-open-detail="${escapeHtml(todo.id)}" class="text-left font-medium hover:underline">
+                <i class="${todo.visibility === '非公開' ? 'ri-lock-2-fill text-stone-400' : 'ri-global-line text-teal-600'}"></i>
+                ${escapeHtml(todo.title)}
+              </button>
+            </td>
+            <td class="p-3">${escapeHtml(todo.department)}</td>
+            <td class="p-3 whitespace-nowrap">${escapeHtml(todo.assigneeName)}</td>
+            <td class="p-3">${escapeHtml(todo.category)}</td>
+            <td class="p-3 whitespace-nowrap">${escapeHtml(formatDate(todo.dueDate))}</td>
+            <td class="p-3">
+              <select class="field min-w-[90px]" data-progress-select="${escapeHtml(todo.id)}" aria-label="進捗">
+                ${[0, 20, 40, 60, 80, 100].map(value =>
+                  `<option value="${value}" ${Number(todo.progress) === value ? 'selected' : ''}>${progressLabel(value)}</option>`
+                ).join('')}
+              </select>
+            </td>
+          </tr>
+        `).join('') || '<tr><td colspan="8" class="p-12 text-center text-stone-500">該当するデータがありません。</td></tr>';
 
-          els.tableCount.textContent = '0 - 0 / 0';
-          els.checkAll.checked = false;
-          return;
-        }
+        $('tableCount').textContent = todos.length
+          ? `1 - ${todos.length} / ${todos.length}`
+          : '0 - 0 / 0';
 
-        els.tableBody.innerHTML = todos.map((todo) => {
-          const checked = state.selectedIds.has(todo.id);
-          const rowClass = isLate(todo)
-            ? 'border-t border-stone-200 bg-rose-50/70 hover:bg-rose-50 dark:border-stone-800 dark:bg-rose-900/10 dark:hover:bg-rose-900/20'
-            : 'border-t border-stone-200 hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/60';
-
-          return `
-            <tr class="${rowClass}">
-              <td class="px-3 py-3 align-middle">
-                <input type="checkbox" data-row-check="${escapeHtml(todo.id)}" ${checked ? 'checked' : ''} class="h-4 w-4 rounded border-stone-300 text-teal-700 focus:ring-teal-600 dark:border-stone-700 dark:bg-stone-900">
-              </td>
-
-              <td class="px-3 py-3 align-middle" title="${escapeHtml(todo.priority)}">
-                ${priorityBars(todo.priority)}
-              </td>
-
-              <td class="px-3 py-3 align-middle">
-                <button type="button" data-open-detail="${escapeHtml(todo.id)}" class="flex items-center gap-2 text-left text-sm font-medium text-stone-800 underline-offset-2 hover:underline dark:text-stone-100">
-                  ${todo.visibility === '非公開' ? '<i class="ri-lock-2-fill text-stone-400"></i>' : '<i class="ri-global-line text-teal-600 dark:text-teal-400"></i>'}
-                  <span>${escapeHtml(todo.title)}</span>
-                </button>
-              </td>
-
-              <td class="px-3 py-3 align-middle">${escapeHtml(todo.department || '')}</td>
-              <td class="px-3 py-3 align-middle">${escapeHtml(todo.assigneeName)}</td>
-              <td class="px-3 py-3 align-middle">${escapeHtml(todo.category)}</td>
-              <td class="px-3 py-3 align-middle tabular-nums">${escapeHtml(formatDateJP(todo.dueDate))}</td>
-
-              <td class="px-3 py-3 align-middle">
-                <select data-progress-select="${escapeHtml(todo.id)}" class="w-24 rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-stone-700 dark:bg-stone-900 dark:focus:ring-teal-900/30">
-                  <option value="0" ${Number(todo.progress) === 0 ? 'selected' : ''}>未着手</option>
-                  <option value="20" ${Number(todo.progress) === 20 ? 'selected' : ''}>20%</option>
-                  <option value="40" ${Number(todo.progress) === 40 ? 'selected' : ''}>40%</option>
-                  <option value="60" ${Number(todo.progress) === 60 ? 'selected' : ''}>60%</option>
-                  <option value="80" ${Number(todo.progress) === 80 ? 'selected' : ''}>80%</option>
-                  <option value="100" ${Number(todo.progress) === 100 ? 'selected' : ''}>100%</option>
-                </select>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        els.tableCount.textContent = `1 - ${todos.length} / ${todos.length}`;
-        els.checkAll.checked = todos.length > 0 && todos.every((todo) => state.selectedIds.has(todo.id));
+        const count = todos.filter(todo => state.selectedIds.has(todo.id)).length;
+        $('checkAll').checked = todos.length > 0 && count === todos.length;
+        $('checkAll').indeterminate = count > 0 && count < todos.length;
       }
 
       function render() {
         if (!state.currentUser) return;
+        const f = state.filters;
+        fillSelect($('filterCategory'), state.categories, f.category, true);
+        fillSelect($('filterDepartment'), departmentNames(), f.department, true);
+        $('filterAssignee').value = f.assignee;
+        $('filterKeyword').value = f.keyword;
+        $('filterProgress').value = f.progress;
 
-        state.filters = normalizeFilters(state.filters);
-        renderCategorySidebar();
-        renderFilterCategory();
-        renderFilterDepartment();
+        $('categoryList').innerHTML = ['', ...state.categories].map(category => `
+          <button type="button" data-side-category="${escapeHtml(category)}"
+            class="flex w-full items-center justify-between rounded-lg p-2 text-left text-sm ${f.selectedCategorySide === category ? 'bg-stone-100 dark:bg-stone-800' : 'hover:bg-stone-50 dark:hover:bg-stone-800'}">
+            <span class="truncate">${escapeHtml(category || 'すべてのカテゴリ')}</span>
+            <span class="text-xs text-stone-400">${category ? state.todos.filter(t => t.category === category).length : state.todos.length}</span>
+          </button>
+        `).join('');
+
         renderKPIs();
         renderTable();
-        syncFilterInputs();
       }
+
+      /*
+       * カテゴリ・組織・担当者追加はToDoフォームをスナップショット保存して開きます。
+       * キャンセル、×、背景クリック、Escapeで元の追加／編集フォームへ戻ります。
+       */
+      let modalCancelHandler = null;
 
       function closeModal() {
-        state.flatpickrInstances.forEach((instance) => instance.destroy());
+        modalCancelHandler = null;
+        state.flatpickrInstances.forEach(instance => instance.destroy());
         state.flatpickrInstances = [];
-        els.modalRoot.innerHTML = '';
-        els.modalRoot.classList.add('hidden');
+        $('modalRoot').replaceChildren();
+        $('modalRoot').classList.add('hidden');
+        document.body.style.overflow = '';
       }
 
-      function openModal(templateId, afterOpen) {
+      function cancelModal() {
+        const handler = modalCancelHandler;
         closeModal();
+        if (handler) handler();
+      }
 
-        const template = document.getElementById(templateId);
-        els.modalRoot.innerHTML = template.innerHTML;
-        els.modalRoot.classList.remove('hidden');
+      function openModal(title, content, afterOpen, onCancel = null, wide = false) {
+        closeModal();
+        modalCancelHandler = onCancel;
+        $('modalRoot').innerHTML = `
+          <div class="absolute inset-0 bg-black/40" data-modal-backdrop></div>
+          <div class="relative flex h-full items-center justify-center overflow-y-auto p-4" data-modal-container>
+            <section role="dialog" aria-modal="true" aria-labelledby="modalTitle"
+              class="panel my-auto max-h-full w-full ${wide ? 'max-w-5xl' : 'max-w-3xl'} overflow-y-auto shadow-2xl">
+              <div class="flex items-center justify-between border-b border-stone-200 px-5 py-4 dark:border-stone-800">
+                <h2 id="modalTitle" class="text-lg font-semibold">${escapeHtml(title)}</h2>
+                <button type="button" data-close-modal class="btn" aria-label="閉じる">×</button>
+              </div>
+              <div class="p-5">${content}</div>
+            </section>
+          </div>
+        `;
+        $('modalRoot').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
 
-        els.modalRoot.querySelectorAll('[data-close-modal]').forEach((button) => {
-          button.addEventListener('click', closeModal);
+        $('modalRoot').querySelectorAll('[data-close-modal]').forEach(button => {
+          button.onclick = cancelModal;
         });
 
-        const backdrop = els.modalRoot.querySelector('.modal-enter');
-        if (backdrop) backdrop.addEventListener('click', closeModal);
-
+        $('modalRoot').querySelector('[data-modal-container]').onclick = event => {
+          if (event.target === event.currentTarget) cancelModal();
+        };
+        $('modalRoot').querySelector('[data-modal-backdrop]').onclick = cancelModal;
         if (afterOpen) afterOpen();
       }
 
-      function openConfirmModal(title, message, onConfirm, confirmLabel = '実行する') {
-        openModal('confirmTemplate', () => {
-          document.getElementById('confirmTitle').textContent = title;
-          document.getElementById('confirmMessage').textContent = message;
-          document.getElementById('confirmOkBtn').textContent = confirmLabel;
-          document.getElementById('confirmOkBtn').addEventListener('click', onConfirm);
-        });
+      function openConfirmModal(title, message, action, label = '実行する', onCancel = null) {
+        openModal(title, `
+          <p class="text-sm leading-6">${escapeHtml(message)}</p>
+          <div class="mt-5 flex justify-end gap-2">
+            <button type="button" data-close-modal class="btn">キャンセル</button>
+            <button id="confirmOkBtn" type="button" class="btn btn-danger">${escapeHtml(label)}</button>
+          </div>
+        `, () => {
+          $('confirmOkBtn').onclick = action;
+          $('confirmOkBtn').focus();
+        }, onCancel);
       }
 
       function initDatePicker(input, checkbox) {
-        const savedValue = input.value;
-
-        const picker = flatpickr(input, {
-          locale: 'ja',
-          dateFormat: 'Y-m-d',
-          allowInput: true,
-        });
-
-        if (savedValue) input.value = savedValue;
-        state.flatpickrInstances.push(picker);
+        let picker = null;
+        let previousValue = input.value;
+        if (typeof flatpickr === 'function') {
+          picker = flatpickr(input, {
+            locale: 'ja',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+          });
+          state.flatpickrInstances.push(picker);
+        }
 
         const toggle = () => {
-          input.disabled = checkbox.checked;
-          input.classList.toggle('bg-stone-100', checkbox.checked);
-          input.classList.toggle('dark:bg-stone-800', checkbox.checked);
-
           if (checkbox.checked) {
-            picker.clear();
+            if (input.value) previousValue = input.value;
+            if (picker) picker.clear();
+            else input.value = '';
+          } else if (!input.value && previousValue) {
+            if (picker) picker.setDate(previousValue, false);
+            else input.value = previousValue;
           }
+          input.disabled = checkbox.checked;
         };
 
-        checkbox.addEventListener('change', toggle);
+        checkbox.onchange = toggle;
         toggle();
       }
 
-      function renderAssigneeOptions(departmentSelect, assigneeSelect, selectedAssignee) {
-        const department = departmentSelect.value;
-        const people = GROUPS[department] || [];
-
-        assigneeSelect.innerHTML = people.map((name) => `
-          <option value="${escapeHtml(name)}">${escapeHtml(name)}</option>
-        `).join('');
-
-        if (people.includes(selectedAssignee)) {
-          assigneeSelect.value = selectedAssignee;
-        } else if (people.length) {
-          assigneeSelect.value = people[0];
-        }
-      }
-
-      function openCategoryModal(onCreated) {
-        openModal('categoryTemplate', () => {
-          const form = document.getElementById('categoryForm');
-          const input = document.getElementById('newCategoryName');
-
-          input.focus();
-
-          form.addEventListener('submit', (event) => {
-            event.preventDefault();
-
-            const name = input.value.trim();
-
-            if (!name) {
-              showFlash('error', 'カテゴリ名を入力してください。');
-              return;
-            }
-
-            if (state.categories.includes(name)) {
-              showFlash('error', '同じカテゴリ名がすでに存在します。');
-              return;
-            }
-
-            state.categories.push(name);
-            state.categories.sort((a, b) => a.localeCompare(b, 'ja'));
-            saveState();
-
-            closeModal();
-
-            if (typeof onCreated === 'function') onCreated(name);
-
-            render();
-            showFlash('success', `カテゴリ「${name}」を追加しました。`);
-          });
+      function setRadio(name, value) {
+        $('modalRoot').querySelectorAll(`input[name="${name}"]`).forEach(input => {
+          input.checked = input.value === value;
         });
       }
 
-      function openTodoForm(todoId = null, snapshot = null) {
-        const editing = Boolean(todoId || snapshot?.id);
+      function radioValue(name, fallback) {
+        return $('modalRoot').querySelector(`input[name="${name}"]:checked`)?.value || fallback;
+      }
 
-        const defaultDepartment = Object.keys(GROUPS)[0];
-        const defaultAssignee = GROUPS[defaultDepartment][0];
+      function captureTodoForm() {
+        return {
+          id: $('todoId').value,
+          title: $('title').value,
+          category: $('category').value,
+          department: $('department').value,
+          assigneeName: $('assignee').value,
+          startDate: $('startDateNone').checked ? '' : $('startDate').value,
+          dueDate: $('dueDateNone').checked ? '' : $('dueDate').value,
+          priority: radioValue('priority', '普通'),
+          progress: Number($('progress').value),
+          memo: $('memo').value,
+          scheduleDisplay: radioValue('scheduleDisplay', '表示'),
+          visibility: radioValue('visibility', '公開'),
+        };
+      }
 
-        const todo = snapshot || (
-          editing
-            ? state.todos.find((item) => item.id === todoId)
-            : {
-                id: '',
-                category: state.categories[0] || '未分類',
-                department: defaultDepartment,
-                assigneeName: defaultAssignee,
-                title: '',
-                startDate: todayStr(),
-                dueDate: todayStr(),
-                priority: '普通',
-                progress: 0,
-                memo: '',
-                visibility: '公開',
-                scheduleDisplay: '表示',
+      /*
+       * type: category / department / assignee
+       * 担当者は追加モーダルで選択した組織に所属します。
+       * 担当者追加はログインアカウントの追加とは別機能です。
+       */
+      function openMasterAddModal(type, snapshot) {
+        if (!state.currentUser) return;
+
+        const settings = {
+          category: {
+            title: 'カテゴリ追加',
+            label: 'カテゴリ名',
+            placeholder: '新しいカテゴリ名を入力',
+            hint: '追加したカテゴリをToDoフォームで選択します。',
+          },
+          department: {
+            title: '組織追加',
+            label: '組織名',
+            placeholder: '例: 人事部',
+            hint: '組織の追加後、その組織に所属する担当者を「担当者に追加」から登録してください。',
+          },
+          assignee: {
+            title: '担当者追加',
+            label: '担当者名',
+            placeholder: '例: 研修 太郎',
+            hint: '担当者は選択した組織に所属します。ログインアカウントは作成されません。',
+          },
+        };
+
+        const config = settings[type];
+        if (!config) return;
+
+        const returnToTodo = () => openTodoForm(snapshot.id || null, snapshot);
+
+        openModal(
+          config.title,
+          $('masterAddTemplate').innerHTML,
+          () => {
+            $('masterNameLabel').textContent = `${config.label}（必須）`;
+            $('masterName').placeholder = config.placeholder;
+            $('masterAddHint').textContent = config.hint;
+
+            if (type === 'assignee') {
+              $('masterDepartmentRow').classList.remove('hidden');
+              fillSelect(
+                $('masterDepartment'),
+                departmentNames(),
+                snapshot.department,
+                false,
+                '組織を先に追加してください'
+              );
+            }
+
+            const showError = message => {
+              $('masterAddError').textContent = message;
+              $('masterAddError').classList.toggle('hidden', !message);
+            };
+
+            $('masterName').oninput = () => showError('');
+            $('masterDepartment').onchange = () => showError('');
+
+            $('masterAddForm').onsubmit = event => {
+              event.preventDefault();
+              if (!state.currentUser) return;
+
+              const name = $('masterName').value.trim();
+              if (!name) {
+                showError(`${config.label}を入力してください。`);
+                return;
               }
+
+              if (type === 'category') {
+                if (state.categories.includes(name)) {
+                  showError('同じカテゴリ名がすでに存在します。');
+                  return;
+                }
+
+                const categories = [...state.categories, name].sort((a, b) => a.localeCompare(b, 'ja'));
+                if (!saveJSON(STORAGE_KEYS.categories, categories)) {
+                  showError('カテゴリを保存できませんでした。');
+                  return;
+                }
+                state.categories = categories;
+                snapshot.category = name;
+
+              } else if (type === 'department') {
+                if (hasOwn(state.groups, name)) {
+                  showError('同じ組織名がすでに存在します。');
+                  return;
+                }
+
+                const groups = normalizeGroups(state.groups);
+                groups[name] = [];
+                if (!saveJSON(STORAGE_KEYS.groups, groups)) {
+                  showError('組織を保存できませんでした。');
+                  return;
+                }
+
+                state.groups = groups;
+                snapshot.department = name;
+                snapshot.assigneeName = '';
+
+              } else {
+                const department = $('masterDepartment').value;
+                if (!department || !hasOwn(state.groups, department)) {
+                  showError('所属組織を選択してください。組織がない場合は先に組織を追加してください。');
+                  return;
+                }
+                if (peopleFor(department).includes(name)) {
+                  showError('この組織には同じ担当者名がすでに存在します。');
+                  return;
+                }
+
+                const groups = normalizeGroups(state.groups);
+                groups[department].push(name);
+                groups[department].sort((a, b) => a.localeCompare(b, 'ja'));
+
+                if (!saveJSON(STORAGE_KEYS.groups, groups)) {
+                  showError('担当者を保存できませんでした。');
+                  return;
+                }
+
+                state.groups = groups;
+                snapshot.department = department;
+                snapshot.assigneeName = name;
+              }
+
+              openTodoForm(snapshot.id || null, snapshot);
+              render();
+              showFlash('success', `${config.label}「${name}」を追加しました。`);
+            };
+
+            $('masterName').focus();
+          },
+          returnToTodo
         );
+      }
+
+      function openTodoForm(todoId = null, snapshot = null) {
+        if (!state.currentUser) return;
+
+        const editing = Boolean(todoId || snapshot?.id);
+        const department = departmentNames()[0] || '';
+        const todo = snapshot || (editing ? state.todos.find(t => t.id === todoId) : {
+          id: '',
+          title: '',
+          category: state.categories[0] || '',
+          department,
+          assigneeName: peopleFor(department)[0] || '',
+          startDate: todayStr(),
+          dueDate: todayStr(),
+          priority: '普通',
+          progress: 0,
+          memo: '',
+          scheduleDisplay: '表示',
+          visibility: '公開',
+        });
 
         if (!todo) {
           showFlash('error', '対象の ToDo が見つかりません。');
           return;
         }
 
-        openModal('todoFormTemplate', () => {
-          document.getElementById('todoFormTitle').textContent = editing ? 'ToDo編集' : 'ToDo追加';
-          document.querySelector('#submitTodoBtn span').textContent = editing ? '更新する' : '追加';
+        openModal(editing ? 'ToDo編集' : 'ToDo追加', $('todoFormTemplate').innerHTML, () => {
+          $('todoId').value = todo.id || '';
+          $('title').value = todo.title || '';
 
-          const todoIdInput = document.getElementById('todoId');
-          const title = document.getElementById('title');
-          const category = document.getElementById('category');
-          const department = document.getElementById('department');
-          const assignee = document.getElementById('assignee');
-          const startDate = document.getElementById('startDate');
-          const dueDate = document.getElementById('dueDate');
-          const startDateNone = document.getElementById('startDateNone');
-          const dueDateNone = document.getElementById('dueDateNone');
-          const progress = document.getElementById('progress');
-          const memo = document.getElementById('memo');
-          const form = document.getElementById('todoForm');
-          const openCategoryCreateBtn = document.getElementById('openCategoryCreateBtn');
+          fillSelect($('category'), state.categories, todo.category);
+          fillSelect($('department'), departmentNames(), todo.department);
 
-          category.innerHTML = state.categories.map((name) => `
-            <option value="${escapeHtml(name)}">${escapeHtml(name)}</option>
-          `).join('');
+          const updateAssignees = selected => {
+            const people = peopleFor($('department').value);
+            fillSelect($('assignee'), people, selected, false, '担当者を追加してください');
+            $('assignee').disabled = people.length === 0;
+            $('openAssigneeCreateBtn').disabled = !$('department').value;
+            $('assigneeHint').textContent = people.length
+              ? '選択した組織に所属する担当者が表示されます。'
+              : 'この組織には担当者がいません。「担当者に追加」から登録してください。';
+          };
 
-          department.innerHTML = Object.keys(GROUPS).map((name) => `
-            <option value="${escapeHtml(name)}">${escapeHtml(name)}</option>
-          `).join('');
+          updateAssignees(todo.assigneeName);
+          $('department').onchange = () => updateAssignees('');
 
-          todoIdInput.value = todo.id || '';
-          category.value = todo.category || state.categories[0] || '未分類';
-          department.value = todo.department || defaultDepartment;
+          $('startDate').value = todo.startDate || '';
+          $('dueDate').value = todo.dueDate || '';
+          $('startDateNone').checked = !todo.startDate;
+          $('dueDateNone').checked = !todo.dueDate;
+          $('progress').value = String(todo.progress ?? 0);
+          $('memo').value = todo.memo || '';
+          setRadio('priority', todo.priority || '普通');
+          setRadio('scheduleDisplay', todo.scheduleDisplay || '表示');
+          setRadio('visibility', todo.visibility || '公開');
+          initDatePicker($('startDate'), $('startDateNone'));
+          initDatePicker($('dueDate'), $('dueDateNone'));
+          $('submitTodoBtn').textContent = editing ? '更新する' : '追加';
 
-          renderAssigneeOptions(department, assignee, todo.assigneeName || defaultAssignee);
+          $('openCategoryCreateBtn').onclick = () => {
+            openMasterAddModal('category', captureTodoForm());
+          };
+          $('openDepartmentCreateBtn').onclick = () => {
+            openMasterAddModal('department', captureTodoForm());
+          };
+          $('openAssigneeCreateBtn').onclick = () => {
+            openMasterAddModal('assignee', captureTodoForm());
+          };
 
-          title.value = todo.title || '';
-          startDate.value = todo.startDate || '';
-          dueDate.value = todo.dueDate || '';
-          startDateNone.checked = !todo.startDate;
-          dueDateNone.checked = !todo.dueDate;
-          progress.value = String(todo.progress ?? 0);
-          memo.value = todo.memo || '';
-
-          document.querySelectorAll('input[name="priority"]').forEach((radio) => {
-            radio.checked = radio.value === (todo.priority || '普通');
-          });
-
-          document.querySelectorAll('input[name="visibility"]').forEach((radio) => {
-            radio.checked = radio.value === (todo.visibility || '公開');
-          });
-
-          document.querySelectorAll('input[name="scheduleDisplay"]').forEach((radio) => {
-            radio.checked = radio.value === (todo.scheduleDisplay || '表示');
-          });
-
-          department.addEventListener('change', () => {
-            renderAssigneeOptions(department, assignee, '');
-          });
-
-          initDatePicker(startDate, startDateNone);
-          initDatePicker(dueDate, dueDateNone);
-
-          openCategoryCreateBtn.addEventListener('click', () => {
-            const currentSnapshot = {
-              id: todoIdInput.value || '',
-              category: category.value,
-              department: department.value,
-              assigneeName: assignee.value,
-              title: title.value,
-              startDate: startDateNone.checked ? '' : startDate.value,
-              dueDate: dueDateNone.checked ? '' : dueDate.value,
-              priority: document.querySelector('input[name="priority"]:checked')?.value || '普通',
-              progress: Number(progress.value),
-              memo: memo.value,
-              visibility: document.querySelector('input[name="visibility"]:checked')?.value || '公開',
-              scheduleDisplay: document.querySelector('input[name="scheduleDisplay"]:checked')?.value || '表示',
-            };
-
-            openCategoryModal((newCategory) => {
-              currentSnapshot.category = newCategory;
-              openTodoForm(currentSnapshot.id || null, currentSnapshot);
-            });
-          });
-
-          form.addEventListener('submit', (event) => {
+          $('todoForm').onsubmit = event => {
             event.preventDefault();
+            if (!state.currentUser) return;
 
-            const payload = {
-              id: todoIdInput.value || cryptoId(),
-              category: category.value.trim(),
-              department: department.value.trim(),
-              assigneeName: assignee.value.trim(),
-              title: title.value.trim(),
-              startDate: startDateNone.checked ? '' : startDate.value.trim(),
-              dueDate: dueDateNone.checked ? '' : dueDate.value.trim(),
-              priority: document.querySelector('input[name="priority"]:checked')?.value || '普通',
-              progress: Number(progress.value),
-              memo: memo.value.trim(),
-              visibility: document.querySelector('input[name="visibility"]:checked')?.value || '公開',
-              scheduleDisplay: document.querySelector('input[name="scheduleDisplay"]:checked')?.value || '表示',
-            };
+            const payload = captureTodoForm();
+            payload.title = payload.title.trim();
+            payload.memo = payload.memo.trim();
 
-            if (!payload.title) {
-              showFlash('error', '件名を入力してください。');
+            if (!payload.title || !payload.category || !payload.department || !payload.assigneeName) {
+              showFlash('error', '件名、カテゴリ、組織、担当者を入力・選択してください。');
               return;
             }
 
-            if (!payload.category) {
-              showFlash('error', 'カテゴリを選択してください。');
-              return;
-            }
-
-            if (!payload.department) {
-              showFlash('error', '組織を選択してください。');
-              return;
-            }
-
-            if (!payload.assigneeName) {
-              showFlash('error', '担当者を選択してください。');
+            if (!peopleFor(payload.department).includes(payload.assigneeName)) {
+              showFlash('error', '選択した組織に所属する担当者を選択してください。');
               return;
             }
 
             const now = todayStr();
-            const currentUserName = state.currentUser?.displayName || 'テスト301';
-
             if (editing) {
-              const current = state.todos.find((item) => item.id === payload.id);
-
+              const current = state.todos.find(t => t.id === payload.id);
               if (!current) {
-                showFlash('error', '更新対象の ToDo が見つかりません。');
+                showFlash('error', '更新対象が見つかりません。');
                 return;
               }
-
               Object.assign(current, payload, {
-                createdAt: current.createdAt || now,
                 updatedAt: now,
-                updatedBy: currentUserName,
+                updatedBy: state.currentUser.displayName,
               });
+            } else {
+              state.todos.unshift({
+                ...payload,
+                id: cryptoId(),
+                createdAt: now,
+                updatedAt: now,
+                updatedBy: state.currentUser.displayName,
+              });
+              state.filters = emptyFilters();
+              clearSelection();
+            }
 
+            saveState();
+            closeModal();
+            render();
+            showFlash('success', editing ? 'ToDoを更新しました。' : 'ToDoを追加しました。');
+          };
+
+          $('title').focus();
+        });
+      }
+
+      function openDetailModal(id) {
+        const todo = state.todos.find(t => t.id === id);
+        if (!todo || !state.currentUser) return;
+
+        const rows = [
+          ['カテゴリ', todo.category], ['件名', todo.title], ['組織', todo.department],
+          ['担当者', todo.assigneeName], ['開始日', formatDate(todo.startDate)],
+          ['締切日', formatDate(todo.dueDate)], ['進捗', progressLabel(todo.progress)],
+          ['優先度', todo.priority], ['作成日', formatDate(todo.createdAt, true)],
+          ['更新日', formatDate(todo.updatedAt)], ['更新者', todo.updatedBy],
+          ['メモ', todo.memo], ['スケジュールへの表示', todo.scheduleDisplay],
+          ['公開設定', todo.visibility],
+        ];
+
+        openModal('ToDo詳細', `
+          <div class="divide-y divide-stone-200 dark:divide-stone-800">
+            ${rows.map(([label, value]) =>
+              `<div class="form-row py-3 text-sm"><div class="font-medium">${escapeHtml(label)}</div><div class="whitespace-pre-wrap break-words">${escapeHtml(value)}</div></div>`
+            ).join('')}
+          </div>
+          <div class="mt-4 flex justify-center gap-2">
+            <button id="detailEditBtn" type="button" class="btn">編集する</button>
+            <button id="detailDeleteBtn" type="button" class="btn">削除する</button>
+            <button type="button" data-close-modal class="btn">閉じる</button>
+          </div>
+        `, () => {
+          $('detailEditBtn').onclick = () => openTodoForm(id);
+          $('detailDeleteBtn').onclick = () => openConfirmModal(
+            '削除確認',
+            `「${todo.title}」を削除します。よろしいですか。`,
+            () => {
+              state.todos = state.todos.filter(t => t.id !== id);
+              state.selectedIds.delete(id);
               saveState();
               closeModal();
               render();
-              showFlash('success', 'ToDoを更新しました。');
+              showFlash('success', 'ToDoを削除しました。');
+            },
+            '削除する',
+            () => openDetailModal(id)
+          );
+        });
+      }
+
+      function renderUserTable() {
+        if (!$('userTableBody')) return;
+        $('userCount').textContent = `登録済みユーザー: ${state.users.length}件`;
+        const adminCount = state.users.filter(user => user.role === 'admin').length;
+
+        $('userTableBody').innerHTML = state.users.map(user => {
+          const canDelete = user.id !== state.currentUser?.id &&
+            !(user.role === 'admin' && adminCount <= 1);
+
+          return `<tr class="border-t border-stone-200 dark:border-stone-800">
+            <td class="p-2">${escapeHtml(user.displayName)}</td>
+            <td class="p-2">${escapeHtml(user.username)}</td>
+            <td class="p-2">${roleLabel(user.role)}</td>
+            <td class="p-2">${escapeHtml(user.password)}</td>
+            <td class="p-2">${canDelete
+              ? `<button type="button" data-delete-user="${escapeHtml(user.id)}" class="text-rose-600">削除</button>`
+              : '—'
+            }</td>
+          </tr>`;
+        }).join('');
+      }
+
+      function openUserManagementModal() {
+        if (!isAdmin()) return;
+        openModal('ユーザー管理', $('userManagementTemplate').innerHTML, () => {
+          renderUserTable();
+
+          $('userForm').onsubmit = event => {
+            event.preventDefault();
+            if (!isAdmin()) return;
+
+            const displayName = $('newUserDisplayName').value.trim();
+            const username = $('newUsername').value.trim();
+            const password = $('newUserPassword').value;
+            const role = $('newUserRole').value;
+
+            if (!displayName || username.length < 3 || password.length < 4) {
+              showFlash('error', '表示名、3文字以上のユーザー名、4文字以上のパスワードを入力してください。');
+              return;
+            }
+            if (state.users.some(user => user.username.toLowerCase() === username.toLowerCase())) {
+              showFlash('error', '同じユーザー名がすでに存在します。');
               return;
             }
 
-            state.todos.unshift({
-              ...payload,
-              createdAt: now,
-              updatedAt: now,
-              updatedBy: currentUserName,
-            });
+            state.users.push({ id: cryptoId(), displayName, username, password, role });
+            saveJSON(STORAGE_KEYS.users, state.users);
+            $('userForm').reset();
+            renderUserTable();
+            showFlash('success', `ユーザー「${displayName}」を追加しました。`);
+          };
 
-            state.filters = {
-              category: '',
-              department: '',
-              assignee: '',
-              keyword: '',
-              progress: '',
-              selectedCategorySide: '',
-            };
+          $('userTableBody').onclick = event => {
+            const button = event.target.closest('[data-delete-user]');
+            if (!button || !isAdmin()) return;
+
+            const user = state.users.find(u => u.id === button.dataset.deleteUser);
+            if (!user || user.id === state.currentUser.id) return;
+            if (user.role === 'admin' && state.users.filter(u => u.role === 'admin').length <= 1) return;
+
+            openConfirmModal(
+              'ユーザー削除',
+              `ユーザー「${user.displayName}」を削除します。`,
+              () => {
+                if (!isAdmin()) return;
+                state.users = state.users.filter(u => u.id !== user.id);
+                saveJSON(STORAGE_KEYS.users, state.users);
+                openUserManagementModal();
+                showFlash('success', 'ユーザーを削除しました。');
+              },
+              '削除する',
+              openUserManagementModal
+            );
+          };
+        }, null, true);
+      }
+
+      $('loginForm').onsubmit = event => {
+        event.preventDefault();
+        const username = $('loginUsername').value.trim();
+        const password = $('loginPassword').value;
+        const user = state.users.find(u => u.username === username && u.password === password);
+
+        if (!user) {
+          loginError('ユーザー名またはパスワードが正しくありません。');
+          return;
+        }
+
+        state.currentUser = user;
+        saveJSON(STORAGE_KEYS.session, {
+          userId: user.id,
+          username: user.username,
+          loggedInAt: new Date().toISOString(),
+        });
+        $('loginPassword').value = '';
+        loginError();
+        showApp();
+      };
+
+      $('loginUsername').oninput = () => loginError();
+      $('loginPassword').oninput = () => loginError();
+      $('logoutBtn').onclick = () => openConfirmModal(
+        'ログアウト確認', 'ログアウトします。よろしいですか。', logout, 'ログアウト'
+      );
+      $('userManagementBtn').onclick = openUserManagementModal;
+      $('openCreateBtn').onclick = () => openTodoForm();
+
+      $('themeToggle').onclick = () => {
+        const dark = document.documentElement.classList.toggle('dark');
+        try {
+          localStorage.setItem(STORAGE_KEYS.theme, dark ? 'dark' : 'light');
+        } catch (_) {}
+        showFlash('info', `テーマを${dark ? 'ダーク' : 'ライト'}に変更しました。`);
+      };
+
+      $('searchBtn').onclick = () => {
+        state.filters = {
+          ...state.filters,
+          category: $('filterCategory').value,
+          department: $('filterDepartment').value,
+          assignee: $('filterAssignee').value.trim(),
+          keyword: $('filterKeyword').value.trim(),
+          progress: $('filterProgress').value,
+        };
+        clearSelection();
+        saveState();
+        render();
+      };
+
+      $('categoryList').onclick = event => {
+        const button = event.target.closest('[data-side-category]');
+        if (!button) return;
+        state.filters.selectedCategorySide = button.dataset.sideCategory;
+        clearSelection();
+        saveState();
+        render();
+      };
+
+      $('checkAll').onchange = event => {
+        getFilteredTodos().forEach(todo => {
+          if (event.target.checked) state.selectedIds.add(todo.id);
+          else state.selectedIds.delete(todo.id);
+        });
+        renderTable();
+      };
+
+      $('todoTableBody').onclick = event => {
+        const button = event.target.closest('[data-open-detail]');
+        if (button) openDetailModal(button.dataset.openDetail);
+      };
+
+      $('todoTableBody').onchange = event => {
+        if (!state.currentUser) return;
+
+        const check = event.target.closest('[data-row-check]');
+        if (check) {
+          if (check.checked) state.selectedIds.add(check.dataset.rowCheck);
+          else state.selectedIds.delete(check.dataset.rowCheck);
+          renderTable();
+          return;
+        }
+
+        const select = event.target.closest('[data-progress-select]');
+        if (!select) return;
+        const todo = state.todos.find(t => t.id === select.dataset.progressSelect);
+        if (!todo) return;
+
+        todo.progress = Number(select.value);
+        todo.updatedAt = todayStr();
+        todo.updatedBy = state.currentUser.displayName;
+        saveState();
+        renderKPIs();
+        renderTable();
+        showFlash('success', '進捗を更新しました。');
+      };
+
+      function bulkAction(remove) {
+        const ids = [...state.selectedIds];
+        if (!ids.length) {
+          showFlash('error', '対象の ToDo を選択してください。');
+          return;
+        }
+
+        openConfirmModal(
+          remove ? '削除確認' : '完了確認',
+          `${ids.length}件の ToDo を${remove ? '削除' : '完了'}にします。よろしいですか。`,
+          () => {
+            if (!state.currentUser) return;
+            if (remove) {
+              state.todos = state.todos.filter(t => !ids.includes(t.id));
+            } else {
+              state.todos.forEach(todo => {
+                if (ids.includes(todo.id)) {
+                  Object.assign(todo, {
+                    progress: 100,
+                    updatedAt: todayStr(),
+                    updatedBy: state.currentUser.displayName,
+                  });
+                }
+              });
+            }
 
             clearSelection();
             saveState();
             closeModal();
             render();
-            showFlash('success', `ToDo「${payload.title}」を追加しました。`);
-          });
-
-          title.focus();
-        });
+            showFlash('success', `${ids.length}件の ToDo を${remove ? '削除' : '完了'}しました。`);
+          },
+          remove ? '削除する' : '完了にする'
+        );
       }
 
-      function openDetailModal(todoId) {
-        const todo = state.todos.find((item) => item.id === todoId);
-        if (!todo) return;
+      $('completeSelectedBtn').onclick = () => bulkAction(false);
+      $('deleteSelectedBtn').onclick = () => bulkAction(true);
 
-        openModal('todoDetailTemplate', () => {
-          const body = document.getElementById('todoDetailBody');
-
-          const rows = [
-            ['カテゴリ', todo.category],
-            ['件名', todo.title],
-            ['組織', todo.department || ''],
-            ['担当者', todo.assigneeName],
-            ['開始日', formatDateJP(todo.startDate)],
-            ['締切日', formatDateJP(todo.dueDate)],
-            ['進捗', progressLabel(todo.progress)],
-            ['優先度', todo.priority],
-            ['作成日', formatDateShort(todo.createdAt)],
-            ['更新日', formatDateJP(todo.updatedAt)],
-            ['更新者', todo.updatedBy || ''],
-            ['メモ', todo.memo || ''],
-            ['スケジュールへの表示', todo.scheduleDisplay],
-            ['公開設定', todo.visibility],
-          ];
-
-          body.innerHTML = rows.map(([label, value]) => `
-            <div class="grid grid-cols-[140px_minmax(0,1fr)] gap-4 py-3">
-              <div class="font-medium text-stone-700 dark:text-stone-200">${escapeHtml(label)}</div>
-              <div class="min-w-0 break-words whitespace-pre-wrap text-stone-800 dark:text-stone-100">${escapeHtml(value)}</div>
-            </div>
-          `).join('');
-
-          document.getElementById('detailEditBtn').addEventListener('click', () => {
-            openTodoForm(todo.id);
-          });
-
-          document.getElementById('detailDeleteBtn').addEventListener('click', () => {
-            openConfirmModal(
-              '削除確認',
-              `「${todo.title}」を削除します。よろしいですか。`,
-              () => {
-                state.todos = state.todos.filter((item) => item.id !== todo.id);
-                state.selectedIds.delete(todo.id);
-                saveState();
-                closeModal();
-                render();
-                showFlash('success', 'ToDoを削除しました。');
-              },
-              '削除する'
-            );
-          });
-        });
-      }
-
-      function resetTrainingData() {
-        state.todos = getDefaultTodos();
-        state.categories = [...DEFAULT_CATEGORIES];
-        state.filters = {
-          category: '',
-          department: '',
-          assignee: '',
-          keyword: '',
-          progress: '',
-          selectedCategorySide: '',
-        };
-
-        clearSelection();
-        saveState();
-        render();
-      }
-
-      function renderUserTable() {
-        const tbody = document.getElementById('userTableBody');
-
-        tbody.innerHTML = state.users.map((user) => {
-          const isCurrentUser = user.id === state.currentUser?.id;
-          const canDelete = !isCurrentUser && !(user.role === 'admin' && state.users.filter((item) => item.role === 'admin').length === 1);
-
-          return `
-            <tr class="border-t border-stone-200 dark:border-stone-800">
-              <td class="px-3 py-2.5">${escapeHtml(user.displayName)}</td>
-              <td class="px-3 py-2.5"><code class="text-xs">${escapeHtml(user.username)}</code></td>
-              <td class="px-3 py-2.5">${escapeHtml(roleLabel(user.role))}</td>
-              <td class="px-3 py-2.5"><code class="text-xs">${escapeHtml(user.password)}</code></td>
-              <td class="px-3 py-2.5 text-right">
-                ${canDelete ? `
-                  <button type="button" data-delete-user="${escapeHtml(user.id)}" class="rounded-md border border-rose-200 px-2 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-50 dark:border-rose-800/60 dark:text-rose-300 dark:hover:bg-rose-900/20">
-                    削除
-                  </button>
-                ` : '<span class="text-xs text-stone-400">—</span>'}
-              </td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      function openUserManagementModal() {
-        if (!isAdmin()) {
-          showFlash('error', 'ユーザー管理は管理者のみ利用できます。');
-          return;
-        }
-
-        openModal('userManagementTemplate', () => {
-          const form = document.getElementById('userForm');
-          const displayNameInput = document.getElementById('newUserDisplayName');
-          const usernameInput = document.getElementById('newUsername');
-          const passwordInput = document.getElementById('newUserPassword');
-          const roleSelect = document.getElementById('newUserRole');
-          const userTableBody = document.getElementById('userTableBody');
-
-          renderUserTable();
-          displayNameInput.focus();
-
-          form.addEventListener('submit', (event) => {
-            event.preventDefault();
-
-            const displayName = displayNameInput.value.trim();
-            const username = usernameInput.value.trim();
-            const password = passwordInput.value;
-            const role = roleSelect.value;
-
-            if (!displayName || !username || !password) {
-              showFlash('error', '表示名、ユーザー名、パスワードを入力してください。');
-              return;
-            }
-
-            if (username.length < 3) {
-              showFlash('error', 'ユーザー名は3文字以上で入力してください。');
-              return;
-            }
-
-            if (password.length < 4) {
-              showFlash('error', 'パスワードは4文字以上で入力してください。');
-              return;
-            }
-
-            if (state.users.some((user) => user.username.toLowerCase() === username.toLowerCase())) {
-              showFlash('error', '同じユーザー名がすでに存在します。');
-              return;
-            }
-
-            state.users.push({
-              id: cryptoId(),
-              displayName,
-              username,
-              password,
-              role,
-            });
-
-            saveUsers();
-            renderUserTable();
-
-            form.reset();
-            roleSelect.value = 'trainee';
-            displayNameInput.focus();
-
-            showFlash('success', `ユーザー「${displayName}」を追加しました。`);
-          });
-
-          userTableBody.addEventListener('click', (event) => {
-            const button = event.target.closest('[data-delete-user]');
-            if (!button) return;
-
-            const user = state.users.find((item) => item.id === button.dataset.deleteUser);
-            if (!user) return;
-
-            openConfirmModal(
-              'ユーザー削除',
-              `ユーザー「${user.displayName}」を削除します。よろしいですか。`,
-              () => {
-                state.users = state.users.filter((item) => item.id !== user.id);
-                saveUsers();
-                closeModal();
-                openUserManagementModal();
-                showFlash('success', `ユーザー「${user.displayName}」を削除しました。`);
-              },
-              '削除する'
-            );
-          });
-        });
-      }
-
-      function bindEvents() {
-        els.loginForm.addEventListener('submit', (event) => {
-          event.preventDefault();
-
-          const username = els.loginUsername.value.trim();
-          const password = els.loginPassword.value;
-
-          if (!username || !password) {
-            showLoginError('ユーザー名とパスワードを入力してください。');
-            return;
-          }
-
-          login(username, password);
-        });
-
-        els.loginUsername.addEventListener('input', clearLoginError);
-        els.loginPassword.addEventListener('input', clearLoginError);
-
-        els.logoutBtn.addEventListener('click', () => {
-          openConfirmModal(
-            'ログアウト確認',
-            'ログアウトします。よろしいですか。',
-            () => {
-              logout();
-            },
-            'ログアウト'
-          );
-        });
-
-        els.userManagementBtn.addEventListener('click', openUserManagementModal);
-
-        els.themeToggle.addEventListener('click', () => {
-          const isDark = document.documentElement.classList.toggle('dark');
-
-          try {
-            localStorage.setItem(STORAGE_KEYS.theme, isDark ? 'dark' : 'light');
-          } catch (_) {}
-
-          showFlash('info', `テーマを${isDark ? 'ダーク' : 'ライト'}に変更しました。`);
-        });
-
-        els.openCreateBtn.addEventListener('click', () => openTodoForm());
-
-        els.searchBtn.addEventListener('click', () => {
-          state.filters.category = normalizeFilterValue(els.filterCategory.value);
-          state.filters.department = normalizeFilterValue(els.filterDepartment.value);
-          state.filters.assignee = els.filterAssignee.value.trim();
-          state.filters.keyword = els.filterKeyword.value.trim();
-          state.filters.progress = normalizeFilterValue(els.filterProgress.value);
-
-          clearSelection();
-          saveState();
-          render();
-          showFlash('info', '検索条件を反映しました。');
-        });
-
-        els.completeSelectedBtn.addEventListener('click', () => {
-          const ids = [...state.selectedIds];
-
-          if (!ids.length) {
-            showFlash('error', '対象の ToDo を選択してください。');
-            return;
-          }
-
-          openConfirmModal(
-            '完了確認',
-            `${ids.length}件の ToDo を完了にします。よろしいですか。`,
-            () => {
-              const today = todayStr();
-              const currentUserName = state.currentUser?.displayName || 'テスト301';
-
-              state.todos = state.todos.map((todo) => {
-                if (!ids.includes(todo.id)) return todo;
-
-                return {
-                  ...todo,
-                  progress: 100,
-                  updatedAt: today,
-                  updatedBy: currentUserName,
-                };
-              });
-
-              clearSelection();
-              saveState();
-              closeModal();
-              render();
-              showFlash('success', `${ids.length}件の ToDo を完了にしました。`);
-            },
-            '完了にする'
-          );
-        });
-
-        els.deleteSelectedBtn.addEventListener('click', () => {
-          const ids = [...state.selectedIds];
-
-          if (!ids.length) {
-            showFlash('error', '削除する ToDo を選択してください。');
-            return;
-          }
-
-          openConfirmModal(
-            '削除確認',
-            `${ids.length}件の ToDo を削除します。よろしいですか。`,
-            () => {
-              state.todos = state.todos.filter((todo) => !ids.includes(todo.id));
-              clearSelection();
-              saveState();
-              closeModal();
-              render();
-              showFlash('success', `${ids.length}件の ToDo を削除しました。`);
-            },
-            '削除する'
-          );
-        });
-
-        els.resetTrainingDataBtn.addEventListener('click', () => {
-          if (!isAdmin()) {
-            showFlash('error', '演習データの初期化は管理者のみ利用できます。');
-            return;
-          }
-
-          openConfirmModal(
-            '演習データ初期化',
-            'このブラウザに保存された ToDo と追加カテゴリを削除し、4件の研修用サンプルへ復元します。よろしいですか。',
-            () => {
-              resetTrainingData();
-              closeModal();
-              showFlash('success', '演習データを初期化し、研修用サンプルへ復元しました。');
-            },
-            '初期化する'
-          );
-        });
-
-        els.checkAll.addEventListener('change', (event) => {
-          const todos = getFilteredTodos();
-
-          if (event.target.checked) {
-            todos.forEach((todo) => state.selectedIds.add(todo.id));
-          } else {
-            todos.forEach((todo) => state.selectedIds.delete(todo.id));
-          }
-
-          renderTable();
-        });
-
-        els.categoryList.addEventListener('click', (event) => {
-          const button = event.target.closest('[data-side-category]');
-          if (!button) return;
-
-          state.filters.selectedCategorySide = normalizeFilterValue(button.dataset.sideCategory);
-          clearSelection();
-          saveState();
-          render();
-        });
-
-        els.tableBody.addEventListener('click', (event) => {
-          const detailButton = event.target.closest('[data-open-detail]');
-          if (detailButton) openDetailModal(detailButton.dataset.openDetail);
-        });
-
-        els.tableBody.addEventListener('change', (event) => {
-          const check = event.target.closest('[data-row-check]');
-
-          if (check) {
-            if (check.checked) {
-              state.selectedIds.add(check.dataset.rowCheck);
-            } else {
-              state.selectedIds.delete(check.dataset.rowCheck);
-            }
-
-            renderTable();
-            return;
-          }
-
-          const progress = event.target.closest('[data-progress-select]');
-
-          if (progress) {
-            const todo = state.todos.find((item) => item.id === progress.dataset.progressSelect);
-            if (!todo) return;
-
-            todo.progress = Number(progress.value);
-            todo.updatedAt = todayStr();
-            todo.updatedBy = state.currentUser?.displayName || 'テスト301';
-
+      $('resetTrainingDataBtn').onclick = () => {
+        if (!isAdmin()) return;
+        openConfirmModal(
+          '演習データ初期化',
+          'このブラウザの ToDo・カテゴリ・追加した組織・担当者を初期化し、4件のサンプルへ復元します。ログインアカウント情報は削除しません。',
+          () => {
+            if (!isAdmin()) return;
+            state.todos = getDefaultTodos();
+            state.categories = [...DEFAULT_CATEGORIES];
+            state.groups = normalizeGroups(DEFAULT_GROUPS);
+            state.filters = emptyFilters();
+            clearSelection();
             saveState();
-            renderKPIs();
-            showFlash('success', `「${todo.title}」の進捗を更新しました。`);
-          }
-        });
-
-        document.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape' && !els.modalRoot.classList.contains('hidden')) {
             closeModal();
-          }
-        });
-      }
+            render();
+            showFlash('success', '演習データを初期化しました。');
+          },
+          '初期化する'
+        );
+      };
 
-      try {
-        const savedTheme = localStorage.getItem(STORAGE_KEYS.theme);
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-        if ((savedTheme || (prefersDark ? 'dark' : 'light')) === 'dark') {
-          document.documentElement.classList.add('dark');
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !$('modalRoot').classList.contains('hidden')) {
+          event.preventDefault();
+          cancelModal();
         }
-      } catch (_) {}
+      });
 
-      bindEvents();
+      window.addEventListener('storage', event => {
+        if (event.key === STORAGE_KEYS.users) {
+          const users = loadJSON(STORAGE_KEYS.users, DEFAULT_USERS);
+          if (Array.isArray(users)) state.users = users;
 
-      if (restoreSession()) {
+          if (state.currentUser) {
+            const updated = state.users.find(user => user.id === state.currentUser.id);
+            if (!updated) {
+              logout();
+              return;
+            }
+            state.currentUser = updated;
+            showApp();
+          }
+        }
+
+        if (event.key === STORAGE_KEYS.session && event.newValue === null) {
+          logout();
+        }
+      });
+
+      migrateAccounts();
+
+      const session = loadJSON(STORAGE_KEYS.session, null);
+      const restoredUser = session?.userId
+        ? state.users.find(user => user.id === session.userId)
+        : null;
+
+      if (restoredUser) {
+        state.currentUser = restoredUser;
         showApp();
       } else {
+        removeStorage(STORAGE_KEYS.session);
         showLogin();
       }
     })();
